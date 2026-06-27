@@ -3,7 +3,7 @@
 *An unofficial level editor for **Nicky Boom** (Microids, DOS, 1992)*
 
 **Version 1.0** · Created by **DarkSoL** (Discord: `darksol41`) · Engine reverse-engineering based on Gregory Montoir's **cyx** reimplementation (`nicky-0.2.0-src`) · Built with the help of the Claude AI (Anthropic)
-
+If you’d like to support me financially, here’s my BTC address: bc1qp476rmcaapl6n6xjvg2la50cfw3kwvxe8sj0m5
 ---
 
 ## What is this?
