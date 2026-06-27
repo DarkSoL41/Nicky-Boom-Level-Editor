@@ -1,0 +1,1614 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NICKY // LEVEL FORGE</title>
+<style>
+  :root{
+    --void:#120f0c;
+    --panel:#1b160f;
+    --panel-raised:#241c13;
+    --line:#3a2f20;
+    --amber:#e3a13c;
+    --amber-dim:#8a6a35;
+    --teal:#5fb8b0;
+    --ink:#e8ddc8;
+    --ink-dim:#9c8f7a;
+    --danger:#d1573f;
+    --mono: ui-monospace, "SF Mono", "Cascadia Mono", "JetBrains Mono", Consolas, monospace;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;height:100%;background:var(--void);color:var(--ink);font-family:var(--mono);}
+  body{display:flex;flex-direction:column;min-height:100vh;}
+
+  /* ---------- header ---------- */
+  header{
+    background:linear-gradient(180deg,var(--panel-raised),var(--panel));
+    border-bottom:2px solid var(--amber-dim);
+    padding:10px 16px 8px;
+    display:flex; align-items:baseline; justify-content:space-between; gap:16px;
+    flex-wrap:wrap;
+  }
+  .brand{display:flex; align-items:baseline; gap:10px;}
+  .brand h1{
+    font-size:18px; letter-spacing:.12em; margin:0; color:var(--amber);
+    text-transform:uppercase; font-weight:700;
+  }
+  .brand .ver{font-size:11px;color:var(--ink-dim);letter-spacing:.08em;}
+  .tagline{font-size:11px;color:var(--ink-dim);letter-spacing:.03em; flex:1; min-width:200px;}
+  .langWrap{display:flex; align-items:center; gap:6px; flex-shrink:0;}
+  .langWrap select{
+    font-family:var(--mono); font-size:11px; background:var(--void); color:var(--ink);
+    border:1px solid var(--line); border-radius:3px; padding:4px 6px; cursor:pointer;
+  }
+  .langWrap select:hover{border-color:var(--amber-dim);}
+
+  /* ---------- file bay ---------- */
+  .filebay{
+    display:flex; gap:18px; padding:8px 16px; background:var(--panel);
+    border-bottom:1px solid var(--line); flex-wrap:wrap; align-items:center;
+  }
+  .slot{
+    display:flex; align-items:center; gap:6px; font-size:11px; letter-spacing:.05em;
+    padding:4px 8px; border:1px solid var(--line); border-radius:3px; background:var(--void);
+    color:var(--ink-dim);
+  }
+  .slot.loaded{border-color:var(--amber-dim); color:var(--amber);}
+  .slot .dot{width:7px;height:7px;border-radius:50%;background:var(--line);flex-shrink:0;}
+  .slot.loaded .dot{background:var(--amber); box-shadow:0 0 5px var(--amber);}
+  .filebay input[type=file]{display:none;}
+  .pickbtn{
+    font-family:var(--mono); font-size:11px; letter-spacing:.05em; cursor:pointer;
+    background:var(--panel-raised); color:var(--ink); border:1px solid var(--line);
+    padding:6px 10px; border-radius:3px; text-transform:uppercase;
+  }
+  .pickbtn:hover{border-color:var(--amber-dim); color:var(--amber);}
+  .pickbtn.primarybtn{background:var(--amber); color:#1a1308; border-color:var(--amber); font-weight:700;}
+  .pickbtn.primarybtn:hover{filter:brightness(1.1); color:#1a1308;}
+  .sep{width:1px; height:22px; background:var(--line); flex-shrink:0;}
+  #levelSwitcher select{
+    font-family:var(--mono); font-size:12px; background:var(--void); color:var(--amber);
+    border:1px solid var(--amber-dim); border-radius:3px; padding:5px 8px; cursor:pointer;
+  }
+  .spacer{flex:1;}
+  .exportbtn{
+    font-family:var(--mono); font-size:12px; letter-spacing:.08em; cursor:pointer;
+    background:var(--teal); color:#0b1f1d; border:none; font-weight:700;
+    padding:8px 16px; border-radius:3px; text-transform:uppercase;
+  }
+  .exportbtn:disabled{background:var(--line); color:var(--ink-dim); cursor:not-allowed;}
+  .exportbtn:not(:disabled):hover{filter:brightness(1.1);}
+
+  /* ---------- main layout ---------- */
+  main{flex:1; display:flex; min-height:0;}
+  aside{
+    width:268px; flex-shrink:0; background:var(--panel); border-right:1px solid var(--line);
+    display:flex; flex-direction:column; min-height:0;
+  }
+  aside h2, .canvtoolbar .label{
+    font-size:10px; letter-spacing:.12em; color:var(--ink-dim); text-transform:uppercase;
+    margin:0; padding:10px 12px 6px;
+  }
+  #tilesPanel, #objectsPanel{
+    flex:1; display:flex; flex-direction:column; min-height:0;
+  }
+  #paletteGrid{
+    flex:1; overflow-y:auto; display:grid; grid-template-columns:repeat(6,1fr);
+    gap:4px; padding:4px 10px 10px;
+  }
+  .swatch{
+    width:32px; height:32px; image-rendering:pixelated; cursor:pointer;
+    border:2px solid transparent; border-radius:2px; background:#000;
+  }
+  .swatch.sel{border-color:var(--teal); box-shadow:0 0 6px rgba(95,184,176,.6);}
+  .swatch:hover{border-color:var(--amber-dim);}
+
+  section.canvasArea{flex:1; display:flex; flex-direction:column; min-width:0; min-height:0;}
+  .canvtoolbar{
+    display:flex; align-items:center; gap:14px; padding:8px 14px; background:var(--panel);
+    border-bottom:1px solid var(--line); flex-wrap:wrap;
+  }
+  .canvtoolbar button{
+    font-family:var(--mono); font-size:11px; letter-spacing:.05em; cursor:pointer;
+    background:var(--panel-raised); color:var(--ink-dim); border:1px solid var(--line);
+    padding:5px 10px; border-radius:3px; text-transform:uppercase;
+  }
+  .canvtoolbar button.active{color:var(--amber); border-color:var(--amber-dim);}
+  .canvtoolbar button:hover{color:var(--amber);}
+  .canvtoolbar label{font-size:11px;color:var(--ink-dim);display:flex;align-items:center;gap:6px;}
+  .canvtoolbar input[type=range]{width:100px;}
+  .canvtoolbar .grp{display:flex; gap:6px; align-items:center;}
+
+  #viewport{
+    flex:1; overflow:auto; background:
+      repeating-linear-gradient(0deg, #0c0a08 0 2px, #0a0807 2px 4px);
+    position:relative; min-height:0;
+  }
+  #mapCanvas{
+    image-rendering:pixelated; display:block; cursor:crosshair;
+    box-shadow:0 0 0 2px var(--amber-dim), 0 0 24px rgba(227,161,60,.15);
+  }
+  #mapCanvas.pick-mode{cursor:copy;}
+
+  .statusbar{
+    display:flex; gap:20px; padding:6px 14px; background:var(--panel-raised);
+    border-top:1px solid var(--line); font-size:11px; color:var(--ink-dim); letter-spacing:.04em;
+  }
+  .statusbar b{color:var(--amber); font-weight:700;}
+
+  footer{
+    padding:6px 16px; font-size:10px; color:var(--ink-dim); background:var(--void);
+    border-top:1px solid var(--line); letter-spacing:.03em;
+  }
+
+  .hint{
+    padding:40px 20px; color:var(--ink-dim); font-size:13px; line-height:1.7; max-width:480px;
+  }
+  .hint b{color:var(--amber);}
+
+  /* ---------- mode switch / objects panel ---------- */
+  .modeSwitch{display:flex; border-bottom:1px solid var(--line);}
+  .modeSwitch button{
+    flex:1; font-family:var(--mono); font-size:11px; letter-spacing:.05em; cursor:pointer;
+    background:var(--panel); color:var(--ink-dim); border:none; padding:9px 4px;
+    text-transform:uppercase; border-bottom:2px solid transparent;
+  }
+  .modeSwitch button.active{color:var(--teal); border-bottom-color:var(--teal);}
+  .modeSwitch button:hover{color:var(--ink);}
+
+  #objectTypeList{flex:1; overflow-y:auto; padding:6px 10px;}
+  .typeRow{
+    display:flex; align-items:center; gap:8px; padding:5px 6px; margin-bottom:3px;
+    border:1px solid var(--line); border-radius:3px; cursor:pointer; font-size:11px;
+    background:var(--void);
+  }
+  .typeRow:hover{border-color:var(--amber-dim);}
+  .typeRow.sel{border-color:var(--teal); box-shadow:0 0 5px rgba(95,184,176,.5);}
+  .typeRow .thumb{
+    width:24px; height:24px; flex-shrink:0; image-rendering:pixelated; background:#000;
+    display:flex; align-items:center; justify-content:center; color:var(--ink-dim); font-size:9px;
+  }
+  .typeRow .meta{color:var(--ink-dim); line-height:1.4;}
+  .typeRow .meta b{color:var(--ink); font-weight:600;}
+
+  #objectInspector{padding:10px 12px; border-top:1px solid var(--line);}
+  .inspField{display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:8px; font-size:11px; color:var(--ink-dim);}
+  .inspField input[type=number]{
+    width:80px; background:var(--void); border:1px solid var(--line); color:var(--ink);
+    font-family:var(--mono); padding:4px 6px; border-radius:3px;
+  }
+  .inspField label{display:flex; align-items:center; gap:6px;}
+  .dangerbtn{
+    width:100%; margin-top:6px; font-family:var(--mono); font-size:11px; letter-spacing:.05em;
+    cursor:pointer; background:var(--danger); color:#1a0a07; border:none; padding:8px;
+    border-radius:3px; text-transform:uppercase; font-weight:700;
+  }
+  .dangerbtn:hover{filter:brightness(1.1);}
+
+  .objMarker{
+    position:absolute; pointer-events:none;
+    border:1.5px solid var(--teal); border-radius:3px; background:rgba(95,184,176,.25);
+    display:flex; align-items:center; justify-content:center; box-sizing:border-box;
+    image-rendering:pixelated; cursor:pointer; color:var(--ink); font-size:8px; overflow:hidden;
+  }
+  .objMarker.invisible{border-color:var(--ink-dim); background:rgba(156,143,122,.2); border-style:dashed;}
+  .objMarker.sel{border-color:var(--amber); box-shadow:0 0 6px var(--amber); z-index:5;}
+  .objMarker canvas{image-rendering:pixelated; pointer-events:none;}
+  #objectsLayer{pointer-events:none;}
+  #objectsLayer.modeActive{pointer-events:auto;}
+  #objectsLayer.modeActive .objMarker{pointer-events:auto;}
+  #objectsLayer.placeReady{cursor:copy;}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <h1>Nicky Boom // Level Editor</h1>
+    <span class="ver">v1.0</span>
+  </div>
+  <div class="tagline" data-i18n="tagline">Nicky Boom (DOS, 1992) level editor — sqx format fully reverse-engineered and byte-verified</div>
+  <div class="langWrap">
+    <label for="langSelect" data-i18n="lbl.language" style="font-size:11px;color:var(--ink-dim);">Language:</label>
+    <select id="langSelect">
+      <option value="en">English</option>
+      <option value="ru">Русский</option>
+      <option value="es">Español</option>
+      <option value="zh">中文</option>
+      <option value="fr">Français</option>
+      <option value="de">Deutsch</option>
+      <option value="pt">Português</option>
+    </select>
+  </div>
+</header>
+
+<div class="filebay">
+  <label class="pickbtn primarybtn"><span data-i18n="btn.openFolder">OPEN GAME FOLDER</span>
+    <input type="file" id="folderInput" webkitdirectory multiple>
+  </label>
+  <div class="grp" id="levelSwitcher" style="display:none">
+    <label for="levelSelect" data-i18n="lbl.level" style="font-size:11px;color:var(--ink-dim);">Level:</label>
+    <select id="levelSelect">
+      <option value="1">1</option>
+      <option value="1A" data-i18n="opt.1A">1A (boss)</option>
+      <option value="2">2</option>
+      <option value="2A" data-i18n="opt.2A">2A (boss)</option>
+      <option value="3">3</option>
+      <option value="3A" data-i18n="opt.3A">3A (boss)</option>
+      <option value="4">4</option>
+      <option value="4A" data-i18n="opt.4A">4A (boss)</option>
+    </select>
+  </div>
+  <span class="sep"></span>
+  <label class="slot" id="slotCDG"><span class="dot"></span><span data-i18n="slot.cdg">DECORn.CDG (map) *</span></label>
+  <label class="slot" id="slotBLK"><span class="dot"></span><span data-i18n="slot.blk">DECORn.BLK (tiles) *</span></label>
+  <label class="slot" id="slotREF"><span class="dot"></span><span data-i18n="slot.ref">DECORn.REF (attributes)</span></label>
+  <label class="slot" id="slotPOSIT"><span class="dot"></span><span data-i18n="slot.posit">POSITn.REF (objects)</span></label>
+  <label class="slot" id="slotANIMREF"><span class="dot"></span><span data-i18n="slot.animref">REFn.REF (types)</span></label>
+  <label class="slot" id="slotSPR"><span class="dot"></span><span data-i18n="slot.spr">S0n/S1n.SPR (sprites)</span></label>
+  <label class="pickbtn"><span data-i18n="btn.manualFiles">OR PICK FILES MANUALLY</span>
+    <input type="file" id="fileInput" multiple>
+  </label>
+  <div class="spacer"></div>
+  <button class="exportbtn" id="exportBtn" disabled data-i18n="btn.exportCdg">Export .CDG</button>
+  <button class="exportbtn" id="exportPositBtn" disabled data-i18n="btn.exportPosit">Export POSIT.REF</button>
+</div>
+
+<main>
+  <aside>
+    <div class="modeSwitch">
+      <button id="modeTilesBtn" class="active" data-i18n="mode.tiles">Tiles</button>
+      <button id="modeObjectsBtn" data-i18n="mode.objects">Objects</button>
+    </div>
+    <div id="tilesPanel">
+      <h2 data-i18n="h2.tileset">Tileset</h2>
+      <div id="paletteGrid"></div>
+    </div>
+    <div id="objectsPanel" style="display:none">
+      <h2 data-i18n="h2.objectTypes">Object types</h2>
+      <div id="objectTypeList"></div>
+      <div id="objectInspector" style="display:none">
+        <h2 data-i18n="h2.selectedObject">Selected object</h2>
+        <div class="inspField"><label data-i18n="insp.type">Type (anim_num)</label><input type="number" id="insType" min="0"></div>
+        <div class="inspField"><label data-i18n="insp.x">X (px)</label><input type="number" id="insX" min="0" max="6400"></div>
+        <div class="inspField"><label data-i18n="insp.y">Y (px)</label><input type="number" id="insY" min="0" max="800"></div>
+        <div class="inspField"><label data-i18n="insp.refref">ref_ref_index</label><input type="number" id="insRefRef" min="0"></div>
+        <div class="inspField"><label data-i18n="insp.tilenum">tile_num</label><input type="number" id="insTileNum" min="0" max="255"></div>
+        <div class="inspField"><label data-i18n-title="insp.visible.title" title="Does NOT mean 'shown on screen'! Controls behaviour AFTER the object is destroyed/collected: on — after 'death' the object switches to a follow-up state (e.g. a breakable block reveals what's inside) and/or a sound plays; off — the object simply disappears. Most regular decorative objects normally have this off."><input type="checkbox" id="insVisible"> <span data-i18n="insp.visible">"Visible" (post-destruction behaviour — see tooltip)</span></label></div>
+        <button id="deleteObjBtn" class="dangerbtn" data-i18n="btn.deleteObject">Delete object</button>
+      </div>
+    </div>
+  </aside>
+
+  <section class="canvasArea">
+    <div class="canvtoolbar">
+      <div class="grp">
+        <button id="toolPaint" class="active" data-i18n="tool.paint">Brush</button>
+        <button id="toolPick" data-i18n="tool.pick">Eyedropper</button>
+        <button id="undoBtn" data-i18n="tool.undo">Undo (Ctrl+Z)</button>
+      </div>
+      <div class="grp">
+        <label><input type="checkbox" id="gridToggle"> <span data-i18n="toggle.grid">Grid</span></label>
+        <label><input type="checkbox" id="collisionToggle"> <span data-i18n="toggle.collision">Collisions</span></label>
+        <label data-i18n-title="toggle.noCompress.title" title="RECOMMENDED ON: encodes the file using literals only, no LZ matches — bigger (~25KB instead of ~9KB), but the only mode confirmed to work in the real DOS game"><input type="checkbox" id="noCompressToggle" checked> <span data-i18n="toggle.noCompress">No compression (safe mode)</span></label>
+        <label data-i18n-title="toggle.noEscape.title" title="Disables the escape byte for long matches (length >9) — diagnostic only, compression is unreliable in the real game regardless"><input type="checkbox" id="noEscapeToggle"> <span data-i18n="toggle.noEscape">No escape (diagnostic)</span></label>
+      </div>
+      <div class="grp">
+        <label><span data-i18n="lbl.zoom">Zoom</span> <input type="range" id="zoom" min="0.25" max="2" step="0.25" value="1"></label>
+        <span id="zoomVal">100%</span>
+      </div>
+    </div>
+    <div id="viewport">
+      <div class="hint" id="hint" data-i18n-html="hint.html">
+        Load at least <b>DECORn.CDG</b> and <b>DECORn.BLK</b> for one level (the "Pick files" button, you can select several at once), or use "Open game folder" above. REF is optional. The colour palette is always approximated (the level-1 built-in palette), since the original game doesn't ship a separate palette file.
+        <br><br>
+        Drawing: left click places the selected tile, the eyedropper picks a tile from the map. Export rebuilds the .CDG in sqx format; the "No compression" checkbox is on by default — it's the only mode confirmed to load in the real DOS game (the file will be bigger, but that's not a problem).
+        <br><br>
+        To edit monsters/items, also load <b>POSITn.REF</b> and <b>REFn.REF</b> (optionally the sprite files <b>S0n.SPR</b>/<b>S1n.SPR</b> for picture previews), then switch to the "Objects" tab on the left.
+        <br><br>
+        <b>Important about objects:</b> moving, editing and deleting existing objects is safe (the editor re-sorts them by X on export — the engine needs that to display them correctly). Adding <b>new</b> objects beyond the original count will most likely corrupt memory in the game (e.g. level 1's buffer is already 100% full: 409 of 409) — the editor will warn you before export if the object count has increased.
+      </div>
+      <div id="canvasWrap" style="position:relative; display:inline-block;">
+        <canvas id="mapCanvas" style="display:none"></canvas>
+        <canvas id="gridCanvas" style="display:none; position:absolute; left:0; top:0; pointer-events:none; image-rendering:pixelated;"></canvas>
+        <div id="objectsLayer" style="display:none; position:absolute; left:0; top:0; width:6400px; height:800px; transform-origin:top left;"></div>
+      </div>
+    </div>
+    <div class="statusbar">
+      <span><span data-i18n="status.tile">Tile: </span><b id="stHover">—</b></span>
+      <span><span data-i18n="status.cellLabel">Cell: </span><b id="stCell">—</b></span>
+      <span><span data-i18n="status.mapsizeLabel">Map size: </span><b id="stSize">—</b></span>
+      <span><span data-i18n="status.tilesInSetLabel">Tiles in set: </span><b id="stTiles">—</b></span>
+      <span><span data-i18n="status.objectsLabel">Objects: </span><b id="stObjCount">—</b></span>
+      <span id="stObjWarning" style="display:none; color:var(--danger); font-weight:700;" data-i18n-title="status.objWarning.title" title="The game almost certainly allocates a fixed-size buffer for POSITn.REF, sized exactly for the original file. Adding new objects beyond the original count increases the decompressed data size and can corrupt adjacent memory in the game (missing objects, graphical glitches). Editing/moving/deleting existing objects is safe — the size never grows." data-i18n="status.objWarning">⚠ more than original — risk of memory corruption in-game!</span>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <span data-i18n-html="footer.credit">Editor made by <b style="color:var(--amber)">DarkSoL</b> (Discord: <b style="color:var(--teal)">darksol41</b>), based on the source code of Gregory Montoir's engine reimplementation — cyx (<i>nicky-0.2.0-src</i>) and with the help of the Claude AI (Anthropic).</span>
+  <br>
+  <span data-i18n-html="footer.sqx">sqx — Nicky Boum (Microids, 1992) compression format, algorithm recovered from the same source code. Map layout is column-major (col*H+row), 400×50 tiles of 16×16px, 4bpp planar.</span>
+</footer>
+
+<script>
+"use strict";
+
+/* ============================================================
+   I18N — переводы интерфейса (en по умолчанию + 6 языков)
+   ============================================================ */
+const I18N = {
+en: {
+  "tagline": `Nicky Boom (DOS, 1992) level editor — sqx format fully reverse-engineered and byte-verified`,
+  "lbl.language": `Language:`, "btn.openFolder": `OPEN GAME FOLDER`, "lbl.level": `Level:`,
+  "opt.1A": `1A (boss)`, "opt.2A": `2A (boss)`, "opt.3A": `3A (boss)`, "opt.4A": `4A (boss)`,
+  "slot.cdg": `DECORn.CDG (map) *`, "slot.blk": `DECORn.BLK (tiles) *`, "slot.ref": `DECORn.REF (attributes)`,
+  "slot.pal": `DECORn.PAL (palette)`, "slot.posit": `POSITn.REF (objects)`, "slot.animref": `REFn.REF (types)`,
+  "slot.spr": `S0n/S1n.SPR (sprites)`, "btn.manualFiles": `OR PICK FILES MANUALLY`,
+  "btn.exportCdg": `Export .CDG`, "btn.exportPosit": `Export POSIT.REF`,
+  "mode.tiles": `Tiles`, "mode.objects": `Objects`,
+  "h2.tileset": `Tileset`, "h2.objectTypes": `Object types`, "h2.selectedObject": `Selected object`,
+  "insp.type": `Type (anim_num)`, "insp.x": `X (px)`, "insp.y": `Y (px)`, "insp.refref": `ref_ref_index`, "insp.tilenum": `tile_num`,
+  "insp.visible": `"Visible" (post-destruction behaviour — see tooltip)`,
+  "insp.visible.title": `Does NOT mean 'shown on screen'! Controls behaviour AFTER the object is destroyed/collected: on — after 'death' the object switches to a follow-up state (e.g. a breakable block reveals what's inside) and/or a sound plays; off — the object simply disappears. Most regular decorative objects normally have this off.`,
+  "btn.deleteObject": `Delete object`,
+  "tool.paint": `Brush`, "tool.pick": `Eyedropper`, "tool.undo": `Undo (Ctrl+Z)`,
+  "toggle.grid": `Grid`, "toggle.collision": `Collisions`,
+  "toggle.noCompress": `No compression (safe mode)`,
+  "toggle.noCompress.title": `RECOMMENDED ON: encodes the file using literals only, no LZ matches — bigger (~25KB instead of ~9KB), but the only mode confirmed to work in the real DOS game`,
+  "toggle.noEscape": `No escape (diagnostic)`,
+  "toggle.noEscape.title": `Disables the escape byte for long matches (length >9) — diagnostic only, compression is unreliable in the real game regardless`,
+  "lbl.zoom": `Zoom`,
+  "hint.html": `Load at least <b>DECORn.CDG</b> and <b>DECORn.BLK</b> for one level (the "Pick files" button, you can select several at once), or use "Open game folder" above. REF is optional. The colour palette is always approximated (the level-1 built-in palette), since the original game doesn't ship a separate palette file.<br><br>Drawing: left click places the selected tile, the eyedropper picks a tile from the map. Export rebuilds the .CDG in sqx format; the "No compression" checkbox is on by default — it's the only mode confirmed to load in the real DOS game (the file will be bigger, but that's not a problem).<br><br>To edit monsters/items, also load <b>POSITn.REF</b> and <b>REFn.REF</b> (optionally the sprite files <b>S0n.SPR</b>/<b>S1n.SPR</b> for picture previews), then switch to the "Objects" tab on the left.<br><br><b>Important about objects:</b> moving, editing and deleting existing objects is safe (the editor re-sorts them by X on export — the engine needs that to display them correctly). Adding <b>new</b> objects beyond the original count will most likely corrupt memory in the game (e.g. level 1's buffer is already 100% full: 409 of 409) — the editor will warn you before export if the object count has increased.`,
+  "status.tile": `Tile: `, "status.cellLabel": `Cell: `, "status.mapsizeLabel": `Map size: `,
+  "status.tilesInSetLabel": `Tiles in set: `, "status.objectsLabel": `Objects: `,
+  "status.objWarning": `⚠ more than original — risk of memory corruption in-game!`,
+  "status.objWarning.title": `The game almost certainly allocates a fixed-size buffer for POSITn.REF, sized exactly for the original file. Adding new objects beyond the original count increases the decompressed data size and can corrupt adjacent memory in the game (missing objects, graphical glitches). Editing/moving/deleting existing objects is safe — the size never grows.`,
+  "footer.credit": `Editor made by <b style="color:var(--amber)">DarkSoL</b> (Discord: <b style="color:var(--teal)">darksol41</b>), based on the source code of Gregory Montoir's engine reimplementation — cyx (<i>nicky-0.2.0-src</i>) and with the help of the Claude AI (Anthropic).`,
+  "footer.sqx": `sqx — Nicky Boum (Microids, 1992) compression format, algorithm recovered from the same source code. Map layout is column-major (col*H+row), 400×50 tiles of 16×16px, 4bpp planar.`,
+  "err.badHeader": `sqx: invalid header ({j1},{j2},{j3})`, "err.guardLimit": `sqx: decode iteration limit exceeded`,
+  "confirm.levelSwitch": `Unsaved map changes will be lost when switching levels. Continue?`,
+  "alert.noFilesForLevel": `No files found for level {suffix} in the selected folder.\nMake sure the folder contains files like DECOR{suffix}.CDG etc.`,
+  "alert.parseError": `Could not parse file {filename}:\n{message}`,
+  "status.mapsizeValue": `{w}×{h} tiles ({pw}×{ph}px)`, "status.cellValue": `row {row}, column {col}`,
+  "swatch.tileTitle": `Tile #{n}`,
+  "objectType.emptyHint": `Load REFn.REF to see the list of monster/item types.`,
+  "objectType.score": `score:`, "objectType.lifes": `lifes:`,
+  "marker.type": `type #{num}`, "marker.hidden": ` [hidden]`, "marker.noSprite": ` [no sprite]`,
+  "warning.overLimitTitle": `Currently {current} objects, the original file had {original}. The game almost certainly allocates a fixed-size buffer for POSITn.REF, sized exactly for the original file. Adding new objects beyond the original count increases the decompressed data size and can corrupt adjacent memory in the game (missing objects, graphical glitches). Editing/moving/deleting existing objects is safe — the size never grows.`,
+  "confirm.exportOverLimit": `Currently {current} objects, the original file had {original}.\n\nThe game almost certainly allocates a FIXED-size buffer for POSITn.REF, sized exactly for the original file. Increasing the object count increases the decompressed data size and can corrupt adjacent memory in the game (missing objects, graphical glitches, instability) — this might be exactly what you already saw.\n\nDeleting and editing/moving existing objects is SAFE.\n\nExport anyway?`,
+},
+ru: {
+  "tagline": `редактор уровней Nicky Boom (DOS, 1992) — формат sqx раскрыт и проверен побайтово`,
+  "lbl.language": `Язык:`, "btn.openFolder": `ОТКРЫТЬ ПАПКУ С ИГРОЙ`, "lbl.level": `Уровень:`,
+  "opt.1A": `1A (босс)`, "opt.2A": `2A (босс)`, "opt.3A": `3A (босс)`, "opt.4A": `4A (босс)`,
+  "slot.cdg": `DECORn.CDG (карта) *`, "slot.blk": `DECORn.BLK (тайлы) *`, "slot.ref": `DECORn.REF (атрибуты)`,
+  "slot.pal": `DECORn.PAL (палитра)`, "slot.posit": `POSITn.REF (объекты)`, "slot.animref": `REFn.REF (типы)`,
+  "slot.spr": `S0n/S1n.SPR (спрайты)`, "btn.manualFiles": `ИЛИ ФАЙЛЫ ВРУЧНУЮ`,
+  "btn.exportCdg": `Экспорт .CDG`, "btn.exportPosit": `Экспорт POSIT.REF`,
+  "mode.tiles": `Тайлы`, "mode.objects": `Объекты`,
+  "h2.tileset": `Тайлсет`, "h2.objectTypes": `Типы объектов`, "h2.selectedObject": `Выбранный объект`,
+  "insp.type": `Тип (anim_num)`, "insp.x": `X (px)`, "insp.y": `Y (px)`, "insp.refref": `ref_ref_index`, "insp.tilenum": `tile_num`,
+  "insp.visible": `«Visible» (поведение после уничтожения — см. подсказку)`,
+  "insp.visible.title": `НЕ означает 'показан на экране'! Управляет поведением ПОСЛЕ уничтожения/сбора объекта: включено — после 'смерти' объект переходит в следующее состояние (например, разбиваемый блок показывает то, что внутри) и/или проигрывается звук; выключено — объект просто пропадает. У большинства обычных декоративных объектов это нормально выключено.`,
+  "btn.deleteObject": `Удалить объект`,
+  "tool.paint": `Кисть`, "tool.pick": `Пипетка`, "tool.undo": `Отменить (Ctrl+Z)`,
+  "toggle.grid": `Сетка`, "toggle.collision": `Коллизии`,
+  "toggle.noCompress": `Без сжатия (надёжный режим)`,
+  "toggle.noCompress.title": `РЕКОМЕНДУЕТСЯ ВКЛЮЧЕНО: кодирует файл только литералами, без LZ-совпадений — крупнее (~25KB вместо ~9KB), но это единственный режим, подтверждённо работающий в реальной DOS-игре`,
+  "toggle.noEscape": `Без escape (диагностика)`,
+  "toggle.noEscape.title": `Запрещает escape-байт у длинных совпадений (длина >9) — диагностика, сжатие всё равно ненадёжно работает в реальной игре`,
+  "lbl.zoom": `Масштаб`,
+  "hint.html": `Загрузите как минимум <b>DECORn.CDG</b> и <b>DECORn.BLK</b> одного уровня (кнопка «Выбрать файлы», можно сразу несколько), или используйте «Открыть папку с игрой» выше. REF — опционально. Цветовая палитра всегда восстанавливается приблизительно (встроенная палитра уровня 1), так как в оригинальной игре отдельного файла палитры нет.<br><br>Рисование: ЛКМ — поставить выбранный тайл, пипетка — взять тайл с карты. Экспорт пересобирает .CDG в формате sqx; галочка «Без сжатия» включена по умолчанию — это единственный режим, подтверждённо загружающийся в настоящей DOS-игре (файл будет крупнее, но это не проблема).<br><br>Для редактирования монстров/предметов загрузите ещё <b>POSITn.REF</b> и <b>REFn.REF</b> (опционально — файлы спрайтов <b>S0n.SPR</b>/<b>S1n.SPR</b> для превью картинок), затем переключитесь на вкладку «Объекты» слева.<br><br><b>Важно про объекты:</b> перемещать, изменять и удалять существующие объекты — безопасно (редактор сам пересортирует их по X при экспорте — это нужно движку для правильного отображения). А вот <b>добавление новых</b> объектов сверх исходного количества скорее всего испортит память в игре (у уровня 1, например, буфер уже заполнен полностью: 409 из 409) — редактор предупредит перед экспортом, если объектов стало больше.`,
+  "status.tile": `Тайл: `, "status.cellLabel": `Ячейка: `, "status.mapsizeLabel": `Размер карты: `,
+  "status.tilesInSetLabel": `Тайлов в наборе: `, "status.objectsLabel": `Объектов: `,
+  "status.objWarning": `⚠ больше исходного — риск порчи памяти в игре!`,
+  "status.objWarning.title": `Игра почти наверняка выделяет под POSITn.REF буфер фиксированного размера, точно под оригинальный файл. Добавление новых объектов сверх исходного количества увеличивает размер распакованных данных и может испортить соседнюю память в игре (пропавшие объекты, графические глитчи). Редактирование/перемещение/удаление существующих объектов безопасно — размер не растёт.`,
+  "footer.credit": `Редактор сделал <b style="color:var(--amber)">DarkSoL</b> (Discord: <b style="color:var(--teal)">darksol41</b>), используя за основу исходники движка-реимплементации Gregory Montoir — cyx (<i>nicky-0.2.0-src</i>) и при помощи нейросети Claude (Anthropic).`,
+  "footer.sqx": `sqx — формат сжатия Nicky Boum (Microids, 1992), алгоритм восстановлен по тем же исходникам. Раскладка карты — колоночная (col*H+row), 400×50 тайлов 16×16px, 4bpp planar.`,
+  "err.badHeader": `sqx: некорректный заголовок ({j1},{j2},{j3})`, "err.guardLimit": `sqx: превышен лимит итераций декодирования`,
+  "confirm.levelSwitch": `Несохранённые изменения карты будут потеряны при смене уровня. Продолжить?`,
+  "alert.noFilesForLevel": `Не найдено ни одного файла для уровня {suffix} в выбранной папке.\nПроверьте, что в папке есть файлы вида DECOR{suffix}.CDG и т.п.`,
+  "alert.parseError": `Не удалось разобрать файл {filename}:\n{message}`,
+  "status.mapsizeValue": `{w}×{h} тайлов ({pw}×{ph}px)`, "status.cellValue": `строка {row}, столбец {col}`,
+  "swatch.tileTitle": `Тайл #{n}`,
+  "objectType.emptyHint": `Загрузите REFn.REF, чтобы увидеть список типов монстров/предметов.`,
+  "objectType.score": `очки:`, "objectType.lifes": `жизни:`,
+  "marker.type": `тип #{num}`, "marker.hidden": ` [скрыт]`, "marker.noSprite": ` [без спрайта]`,
+  "warning.overLimitTitle": `Сейчас {current} объектов, в исходном файле было {original}. Игра почти наверняка выделяет под POSITn.REF буфер фиксированного размера, точно под оригинальный файл. Добавление новых объектов сверх исходного количества увеличивает размер распакованных данных и может испортить соседнюю память в игре (пропавшие объекты, графические глитчи). Редактирование/перемещение/удаление существующих объектов безопасно — размер не растёт.`,
+  "confirm.exportOverLimit": `Объектов сейчас {current}, в исходном файле было {original}.\n\nИгра почти наверняка выделяет под POSITn.REF буфер ФИКСИРОВАННОГО размера, рассчитанный точно под оригинальный файл. Увеличение числа объектов увеличивает размер распакованных данных и может испортить соседнюю память в игре (пропавшие объекты, графические глитчи, нестабильность) — именно это вы могли уже увидеть.\n\nУдаление и редактирование/перемещение существующих объектов БЕЗОПАСНО.\n\nЭкспортировать всё равно?`,
+},
+es: {
+  "tagline": `editor de niveles de Nicky Boom (DOS, 1992) — formato sqx totalmente descifrado y verificado byte a byte`,
+  "lbl.language": `Idioma:`, "btn.openFolder": `ABRIR CARPETA DEL JUEGO`, "lbl.level": `Nivel:`,
+  "opt.1A": `1A (jefe)`, "opt.2A": `2A (jefe)`, "opt.3A": `3A (jefe)`, "opt.4A": `4A (jefe)`,
+  "slot.cdg": `DECORn.CDG (mapa) *`, "slot.blk": `DECORn.BLK (tiles) *`, "slot.ref": `DECORn.REF (atributos)`,
+  "slot.pal": `DECORn.PAL (paleta)`, "slot.posit": `POSITn.REF (objetos)`, "slot.animref": `REFn.REF (tipos)`,
+  "slot.spr": `S0n/S1n.SPR (sprites)`, "btn.manualFiles": `O ELEGIR ARCHIVOS MANUALMENTE`,
+  "btn.exportCdg": `Exportar .CDG`, "btn.exportPosit": `Exportar POSIT.REF`,
+  "mode.tiles": `Tiles`, "mode.objects": `Objetos`,
+  "h2.tileset": `Conjunto de tiles`, "h2.objectTypes": `Tipos de objetos`, "h2.selectedObject": `Objeto seleccionado`,
+  "insp.type": `Tipo (anim_num)`, "insp.x": `X (px)`, "insp.y": `Y (px)`, "insp.refref": `ref_ref_index`, "insp.tilenum": `tile_num`,
+  "insp.visible": `«Visible» (comportamiento tras destrucción — ver ayuda)`,
+  "insp.visible.title": `¡NO significa 'visible en pantalla'! Controla el comportamiento DESPUÉS de que el objeto es destruido/recogido: activado — tras la 'muerte' el objeto pasa a un estado siguiente (p. ej. un bloque rompible revela lo que contiene) y/o se reproduce un sonido; desactivado — el objeto simplemente desaparece. La mayoría de los objetos decorativos normales tienen esto desactivado.`,
+  "btn.deleteObject": `Eliminar objeto`,
+  "tool.paint": `Pincel`, "tool.pick": `Cuentagotas`, "tool.undo": `Deshacer (Ctrl+Z)`,
+  "toggle.grid": `Cuadrícula`, "toggle.collision": `Colisiones`,
+  "toggle.noCompress": `Sin compresión (modo seguro)`,
+  "toggle.noCompress.title": `RECOMENDADO ACTIVADO: codifica el archivo solo con literales, sin coincidencias LZ — más grande (~25KB en vez de ~9KB), pero el único modo confirmado que funciona en el juego DOS real`,
+  "toggle.noEscape": `Sin escape (diagnóstico)`,
+  "toggle.noEscape.title": `Desactiva el byte de escape en coincidencias largas (longitud >9) — solo diagnóstico, la compresión es poco fiable en el juego real de todos modos`,
+  "lbl.zoom": `Zoom`,
+  "hint.html": `Carga al menos <b>DECORn.CDG</b> y <b>DECORn.BLK</b> de un nivel (botón "Elegir archivos", puedes elegir varios a la vez), o usa "Abrir carpeta del juego" arriba. REF es opcional. La paleta de colores siempre se aproxima (la paleta integrada del nivel 1), ya que el juego original no incluye un archivo de paleta independiente.<br><br>Dibujo: clic izquierdo coloca el tile seleccionado, el cuentagotas toma un tile del mapa. Exportar reconstruye el .CDG en formato sqx; la casilla "Sin compresión" está activada por defecto — es el único modo confirmado que carga en el juego DOS real (el archivo será más grande, pero no es un problema).<br><br>Para editar monstruos/objetos, carga también <b>POSITn.REF</b> y <b>REFn.REF</b> (opcionalmente los archivos de sprites <b>S0n.SPR</b>/<b>S1n.SPR</b> para vistas previas), luego cambia a la pestaña "Objetos" a la izquierda.<br><br><b>Importante sobre los objetos:</b> mover, editar y eliminar objetos existentes es seguro (el editor los reordena por X al exportar — el motor lo necesita para mostrarlos correctamente). Pero <b>añadir nuevos</b> objetos por encima de la cantidad original probablemente corromperá la memoria del juego (p. ej. el búfer del nivel 1 ya está lleno al 100%: 409 de 409) — el editor avisará antes de exportar si la cantidad de objetos ha aumentado.`,
+  "status.tile": `Tile: `, "status.cellLabel": `Celda: `, "status.mapsizeLabel": `Tamaño del mapa: `,
+  "status.tilesInSetLabel": `Tiles en el set: `, "status.objectsLabel": `Objetos: `,
+  "status.objWarning": `⚠ más que el original — ¡riesgo de corrupción de memoria en el juego!`,
+  "status.objWarning.title": `El juego casi con toda seguridad reserva un búfer de tamaño fijo para POSITn.REF, ajustado exactamente al archivo original. Añadir objetos nuevos por encima de la cantidad original aumenta el tamaño de los datos descomprimidos y puede corromper la memoria adyacente del juego (objetos desaparecidos, fallos gráficos). Editar/mover/eliminar objetos existentes es seguro — el tamaño nunca crece.`,
+  "footer.credit": `Editor creado por <b style="color:var(--amber)">DarkSoL</b> (Discord: <b style="color:var(--teal)">darksol41</b>), basado en el código fuente de la reimplementación del motor de Gregory Montoir — cyx (<i>nicky-0.2.0-src</i>) y con la ayuda de la IA Claude (Anthropic).`,
+  "footer.sqx": `sqx — formato de compresión de Nicky Boum (Microids, 1992), algoritmo recuperado del mismo código fuente. El mapa se almacena por columnas (col*H+row), 400×50 tiles de 16×16px, 4bpp planar.`,
+  "err.badHeader": `sqx: cabecera inválida ({j1},{j2},{j3})`, "err.guardLimit": `sqx: límite de iteraciones de decodificación superado`,
+  "confirm.levelSwitch": `Los cambios sin guardar en el mapa se perderán al cambiar de nivel. ¿Continuar?`,
+  "alert.noFilesForLevel": `No se encontró ningún archivo para el nivel {suffix} en la carpeta seleccionada.\nComprueba que la carpeta contenga archivos como DECOR{suffix}.CDG, etc.`,
+  "alert.parseError": `No se pudo analizar el archivo {filename}:\n{message}`,
+  "status.mapsizeValue": `{w}×{h} tiles ({pw}×{ph}px)`, "status.cellValue": `fila {row}, columna {col}`,
+  "swatch.tileTitle": `Tile #{n}`,
+  "objectType.emptyHint": `Carga REFn.REF para ver la lista de tipos de monstruos/objetos.`,
+  "objectType.score": `puntos:`, "objectType.lifes": `vidas:`,
+  "marker.type": `tipo #{num}`, "marker.hidden": ` [oculto]`, "marker.noSprite": ` [sin sprite]`,
+  "warning.overLimitTitle": `Actualmente hay {current} objetos, el archivo original tenía {original}. El juego casi con toda seguridad reserva un búfer de tamaño fijo para POSITn.REF, ajustado exactamente al archivo original. Añadir objetos nuevos por encima de la cantidad original aumenta el tamaño de los datos descomprimidos y puede corromper la memoria adyacente del juego (objetos desaparecidos, fallos gráficos). Editar/mover/eliminar objetos existentes es seguro — el tamaño nunca crece.`,
+  "confirm.exportOverLimit": `Actualmente hay {current} objetos, el archivo original tenía {original}.\n\nEl juego casi con toda seguridad reserva un búfer de tamaño FIJO para POSITn.REF, ajustado exactamente al archivo original. Aumentar la cantidad de objetos incrementa el tamaño de los datos descomprimidos y puede corromper la memoria adyacente del juego (objetos desaparecidos, fallos gráficos, inestabilidad) — esto podría ser justo lo que ya viste.\n\nEliminar y editar/mover objetos existentes es SEGURO.\n\n¿Exportar de todos modos?`,
+},
+zh: {
+  "tagline": `Nicky Boom（DOS，1992）关卡编辑器 — sqx 格式已完全破解并逐字节验证`,
+  "lbl.language": `语言：`, "btn.openFolder": `打开游戏文件夹`, "lbl.level": `关卡：`,
+  "opt.1A": `1A（首领）`, "opt.2A": `2A（首领）`, "opt.3A": `3A（首领）`, "opt.4A": `4A（首领）`,
+  "slot.cdg": `DECORn.CDG（地图）*`, "slot.blk": `DECORn.BLK（图块）*`, "slot.ref": `DECORn.REF（属性）`,
+  "slot.pal": `DECORn.PAL（调色板）`, "slot.posit": `POSITn.REF（对象）`, "slot.animref": `REFn.REF（类型）`,
+  "slot.spr": `S0n/S1n.SPR（精灵图）`, "btn.manualFiles": `或手动选择文件`,
+  "btn.exportCdg": `导出 .CDG`, "btn.exportPosit": `导出 POSIT.REF`,
+  "mode.tiles": `图块`, "mode.objects": `对象`,
+  "h2.tileset": `图块集`, "h2.objectTypes": `对象类型`, "h2.selectedObject": `已选对象`,
+  "insp.type": `类型（anim_num）`, "insp.x": `X（像素）`, "insp.y": `Y（像素）`, "insp.refref": `ref_ref_index`, "insp.tilenum": `tile_num`,
+  "insp.visible": `「Visible」（销毁后行为 — 见提示）`,
+  "insp.visible.title": `并不代表「在屏幕上显示」！它控制对象被摧毁/收集之后的行为：开启 — 「死亡」后对象切换到后续状态（例如可破坏方块显示内部物品）并/或播放音效；关闭 — 对象直接消失。大多数普通装饰对象通常关闭此项。`,
+  "btn.deleteObject": `删除对象`,
+  "tool.paint": `画笔`, "tool.pick": `吸管`, "tool.undo": `撤销（Ctrl+Z）`,
+  "toggle.grid": `网格`, "toggle.collision": `碰撞`,
+  "toggle.noCompress": `不压缩（安全模式）`,
+  "toggle.noCompress.title": `建议开启：仅使用字面值编码文件，不使用LZ匹配 — 体积更大（约25KB而非约9KB），但是唯一确认能在真实DOS游戏中正常加载的模式`,
+  "toggle.noEscape": `禁用escape（诊断用）`,
+  "toggle.noEscape.title": `禁止长匹配（长度>9）使用escape字节 — 仅用于诊断，压缩在真实游戏中无论如何都不可靠`,
+  "lbl.zoom": `缩放`,
+  "hint.html": `请至少加载某个关卡的 <b>DECORn.CDG</b> 和 <b>DECORn.BLK</b>（「手动选择文件」按钮可一次选择多个），或使用上方的「打开游戏文件夹」。REF 是可选的。调色板始终是近似还原的（第1关内置调色板），因为原版游戏并没有单独的调色板文件。<br><br>绘制方式：左键放置选中的图块，吸管从地图上取色。导出会以 sqx 格式重建 .CDG；默认勾选「不压缩」— 这是唯一确认能在真实 DOS 游戏中加载的模式（文件会更大，但这不是问题）。<br><br>要编辑怪物/物品，还需加载 <b>POSITn.REF</b> 和 <b>REFn.REF</b>（可选加载精灵文件 <b>S0n.SPR</b>/<b>S1n.SPR</b> 以显示预览图），然后切换到左侧的「对象」标签。<br><br><b>关于对象的重要提示：</b>移动、编辑和删除现有对象是安全的（导出时编辑器会自动按X坐标重新排序 — 引擎需要这样才能正确显示）。但是在原有数量基础上<b>新增</b>对象很可能会破坏游戏内存（例如第1关的缓冲区已经100%占满：409/409）— 如果对象数量增加，导出前编辑器会发出警告。`,
+  "status.tile": `图块：`, "status.cellLabel": `单元格：`, "status.mapsizeLabel": `地图大小：`,
+  "status.tilesInSetLabel": `图块集数量：`, "status.objectsLabel": `对象数：`,
+  "status.objWarning": `⚠ 超过原始数量 — 游戏内存损坏风险！`,
+  "status.objWarning.title": `游戏几乎肯定为 POSITn.REF 分配了固定大小的缓冲区，正好匹配原始文件大小。在原有数量基础上新增对象会增加解压后数据的大小，可能损坏游戏中相邻的内存（对象丢失、图形故障）。编辑/移动/删除现有对象是安全的 — 大小永远不会增加。`,
+  "footer.credit": `编辑器作者：<b style="color:var(--amber)">DarkSoL</b>（Discord：<b style="color:var(--teal)">darksol41</b>），基于 Gregory Montoir 的引擎重实现项目 cyx（<i>nicky-0.2.0-src</i>）源代码，并借助 Claude AI（Anthropic）完成。`,
+  "footer.sqx": `sqx — Nicky Boum（Microids，1992）压缩格式，算法根据同一份源代码还原。地图按列存储（col*H+row），400×50 个 16×16px 的图块，4bpp 位平面格式。`,
+  "err.badHeader": `sqx：无效的文件头（{j1},{j2},{j3}）`, "err.guardLimit": `sqx：解码迭代次数超出限制`,
+  "confirm.levelSwitch": `切换关卡将丢失未保存的地图更改。是否继续？`,
+  "alert.noFilesForLevel": `在所选文件夹中未找到关卡 {suffix} 的任何文件。\n请确认文件夹中包含类似 DECOR{suffix}.CDG 等文件。`,
+  "alert.parseError": `无法解析文件 {filename}：\n{message}`,
+  "status.mapsizeValue": `{w}×{h} 个图块（{pw}×{ph}px）`, "status.cellValue": `第 {row} 行，第 {col} 列`,
+  "swatch.tileTitle": `图块 #{n}`,
+  "objectType.emptyHint": `请加载 REFn.REF 以查看怪物/物品类型列表。`,
+  "objectType.score": `分数：`, "objectType.lifes": `生命：`,
+  "marker.type": `类型 #{num}`, "marker.hidden": `【隐藏】`, "marker.noSprite": `【无精灵图】`,
+  "warning.overLimitTitle": `当前有 {current} 个对象，原始文件中有 {original} 个。游戏几乎肯定为 POSITn.REF 分配了固定大小的缓冲区，正好匹配原始文件大小。新增超出原有数量的对象会增加解压数据大小，可能损坏游戏中相邻内存（对象丢失、图形故障）。编辑/移动/删除现有对象是安全的 — 大小不会增加。`,
+  "confirm.exportOverLimit": `当前有 {current} 个对象，原始文件中有 {original} 个。\n\n游戏几乎肯定为 POSITn.REF 分配了固定大小的缓冲区，正好匹配原始文件。增加对象数量会增加解压数据大小，可能损坏游戏中相邻内存（对象丢失、图形故障、不稳定）— 这可能正是您已经遇到的情况。\n\n删除和编辑/移动现有对象是安全的。\n\n仍要导出吗？`,
+},
+fr: {
+  "tagline": `éditeur de niveaux Nicky Boom (DOS, 1992) — format sqx entièrement décrypté et vérifié octet par octet`,
+  "lbl.language": `Langue :`, "btn.openFolder": `OUVRIR LE DOSSIER DU JEU`, "lbl.level": `Niveau :`,
+  "opt.1A": `1A (boss)`, "opt.2A": `2A (boss)`, "opt.3A": `3A (boss)`, "opt.4A": `4A (boss)`,
+  "slot.cdg": `DECORn.CDG (carte) *`, "slot.blk": `DECORn.BLK (tiles) *`, "slot.ref": `DECORn.REF (attributs)`,
+  "slot.pal": `DECORn.PAL (palette)`, "slot.posit": `POSITn.REF (objets)`, "slot.animref": `REFn.REF (types)`,
+  "slot.spr": `S0n/S1n.SPR (sprites)`, "btn.manualFiles": `OU CHOISIR LES FICHIERS MANUELLEMENT`,
+  "btn.exportCdg": `Exporter .CDG`, "btn.exportPosit": `Exporter POSIT.REF`,
+  "mode.tiles": `Tiles`, "mode.objects": `Objets`,
+  "h2.tileset": `Jeu de tiles`, "h2.objectTypes": `Types d'objets`, "h2.selectedObject": `Objet sélectionné`,
+  "insp.type": `Type (anim_num)`, "insp.x": `X (px)`, "insp.y": `Y (px)`, "insp.refref": `ref_ref_index`, "insp.tilenum": `tile_num`,
+  "insp.visible": `« Visible » (comportement après destruction — voir l'info-bulle)`,
+  "insp.visible.title": `Ne signifie PAS 'affiché à l'écran' ! Contrôle le comportement APRÈS la destruction/collecte de l'objet : activé — après la 'mort', l'objet passe à un état suivant (par ex. un bloc destructible révèle son contenu) et/ou un son est joué ; désactivé — l'objet disparaît simplement. La plupart des objets décoratifs ordinaires ont normalement cette option désactivée.`,
+  "btn.deleteObject": `Supprimer l'objet`,
+  "tool.paint": `Pinceau`, "tool.pick": `Pipette`, "tool.undo": `Annuler (Ctrl+Z)`,
+  "toggle.grid": `Grille`, "toggle.collision": `Collisions`,
+  "toggle.noCompress": `Sans compression (mode sûr)`,
+  "toggle.noCompress.title": `RECOMMANDÉ ACTIVÉ : encode le fichier uniquement avec des littéraux, sans correspondances LZ — plus volumineux (~25Ko au lieu de ~9Ko), mais le seul mode confirmé fonctionnant dans le vrai jeu DOS`,
+  "toggle.noEscape": `Sans escape (diagnostic)`,
+  "toggle.noEscape.title": `Désactive l'octet d'échappement pour les longues correspondances (longueur >9) — diagnostic uniquement, la compression reste de toute façon peu fiable dans le vrai jeu`,
+  "lbl.zoom": `Zoom`,
+  "hint.html": `Chargez au moins <b>DECORn.CDG</b> et <b>DECORn.BLK</b> d'un niveau (bouton « Choisir les fichiers », plusieurs à la fois possible), ou utilisez « Ouvrir le dossier du jeu » ci-dessus. REF est optionnel. La palette de couleurs est toujours approximée (la palette intégrée du niveau 1), car le jeu original ne fournit pas de fichier de palette séparé.<br><br>Dessin : clic gauche pour poser le tile sélectionné, la pipette prélève un tile sur la carte. L'export reconstruit le .CDG au format sqx ; la case « Sans compression » est activée par défaut — c'est le seul mode confirmé se chargeant dans le vrai jeu DOS (le fichier sera plus gros, mais ce n'est pas un problème).<br><br>Pour éditer les monstres/objets, chargez aussi <b>POSITn.REF</b> et <b>REFn.REF</b> (optionnellement les fichiers de sprites <b>S0n.SPR</b>/<b>S1n.SPR</b> pour les aperçus), puis passez à l'onglet « Objets » à gauche.<br><br><b>Important à propos des objets :</b> déplacer, modifier et supprimer des objets existants est sûr (l'éditeur les retrie par X à l'export — le moteur en a besoin pour un affichage correct). En revanche, <b>ajouter de nouveaux</b> objets au-delà du nombre d'origine corrompra très probablement la mémoire du jeu (par ex. le buffer du niveau 1 est déjà plein à 100% : 409 sur 409) — l'éditeur vous avertira avant l'export si le nombre d'objets a augmenté.`,
+  "status.tile": `Tile : `, "status.cellLabel": `Cellule : `, "status.mapsizeLabel": `Taille de la carte : `,
+  "status.tilesInSetLabel": `Tiles dans le set : `, "status.objectsLabel": `Objets : `,
+  "status.objWarning": `⚠ plus que l'original — risque de corruption mémoire en jeu !`,
+  "status.objWarning.title": `Le jeu alloue presque certainement un buffer de taille fixe pour POSITn.REF, dimensionné exactement pour le fichier d'origine. Ajouter de nouveaux objets au-delà du nombre d'origine augmente la taille des données décompressées et peut corrompre la mémoire adjacente dans le jeu (objets manquants, glitches graphiques). Modifier/déplacer/supprimer des objets existants est sûr — la taille n'augmente jamais.`,
+  "footer.credit": `Éditeur réalisé par <b style="color:var(--amber)">DarkSoL</b> (Discord : <b style="color:var(--teal)">darksol41</b>), à partir du code source de la réimplémentation du moteur par Gregory Montoir — cyx (<i>nicky-0.2.0-src</i>) et avec l'aide de l'IA Claude (Anthropic).`,
+  "footer.sqx": `sqx — format de compression de Nicky Boum (Microids, 1992), algorithme retrouvé à partir du même code source. La carte est stockée par colonnes (col*H+row), 400×50 tiles de 16×16px, 4bpp planar.`,
+  "err.badHeader": `sqx : en-tête invalide ({j1},{j2},{j3})`, "err.guardLimit": `sqx : limite d'itérations de décodage dépassée`,
+  "confirm.levelSwitch": `Les modifications non enregistrées de la carte seront perdues en changeant de niveau. Continuer ?`,
+  "alert.noFilesForLevel": `Aucun fichier trouvé pour le niveau {suffix} dans le dossier sélectionné.\nVérifiez que le dossier contient des fichiers comme DECOR{suffix}.CDG, etc.`,
+  "alert.parseError": `Impossible d'analyser le fichier {filename} :\n{message}`,
+  "status.mapsizeValue": `{w}×{h} tiles ({pw}×{ph}px)`, "status.cellValue": `ligne {row}, colonne {col}`,
+  "swatch.tileTitle": `Tile #{n}`,
+  "objectType.emptyHint": `Chargez REFn.REF pour voir la liste des types de monstres/objets.`,
+  "objectType.score": `score :`, "objectType.lifes": `vies :`,
+  "marker.type": `type #{num}`, "marker.hidden": ` [caché]`, "marker.noSprite": ` [sans sprite]`,
+  "warning.overLimitTitle": `Actuellement {current} objets, le fichier d'origine en avait {original}. Le jeu alloue presque certainement un buffer de taille fixe pour POSITn.REF, dimensionné exactement pour le fichier d'origine. Ajouter de nouveaux objets au-delà du nombre d'origine augmente la taille des données décompressées et peut corrompre la mémoire adjacente dans le jeu (objets manquants, glitches graphiques). Modifier/déplacer/supprimer des objets existants est sûr — la taille n'augmente jamais.`,
+  "confirm.exportOverLimit": `Actuellement {current} objets, le fichier d'origine en avait {original}.\n\nLe jeu alloue presque certainement un buffer de taille FIXE pour POSITn.REF, dimensionné exactement pour le fichier d'origine. Augmenter le nombre d'objets augmente la taille des données décompressées et peut corrompre la mémoire adjacente dans le jeu (objets manquants, glitches graphiques, instabilité) — c'est peut-être exactement ce que vous avez déjà constaté.\n\nSupprimer et modifier/déplacer des objets existants est SÛR.\n\nExporter quand même ?`,
+},
+de: {
+  "tagline": `Nicky Boom (DOS, 1992) Level-Editor — sqx-Format vollständig entschlüsselt und byteweise verifiziert`,
+  "lbl.language": `Sprache:`, "btn.openFolder": `SPIELORDNER ÖFFNEN`, "lbl.level": `Level:`,
+  "opt.1A": `1A (Boss)`, "opt.2A": `2A (Boss)`, "opt.3A": `3A (Boss)`, "opt.4A": `4A (Boss)`,
+  "slot.cdg": `DECORn.CDG (Karte) *`, "slot.blk": `DECORn.BLK (Tiles) *`, "slot.ref": `DECORn.REF (Attribute)`,
+  "slot.pal": `DECORn.PAL (Palette)`, "slot.posit": `POSITn.REF (Objekte)`, "slot.animref": `REFn.REF (Typen)`,
+  "slot.spr": `S0n/S1n.SPR (Sprites)`, "btn.manualFiles": `ODER DATEIEN MANUELL WÄHLEN`,
+  "btn.exportCdg": `Exportiere .CDG`, "btn.exportPosit": `Exportiere POSIT.REF`,
+  "mode.tiles": `Tiles`, "mode.objects": `Objekte`,
+  "h2.tileset": `Tileset`, "h2.objectTypes": `Objekttypen`, "h2.selectedObject": `Ausgewähltes Objekt`,
+  "insp.type": `Typ (anim_num)`, "insp.x": `X (px)`, "insp.y": `Y (px)`, "insp.refref": `ref_ref_index`, "insp.tilenum": `tile_num`,
+  "insp.visible": `»Visible« (Verhalten nach Zerstörung — siehe Tooltip)`,
+  "insp.visible.title": `Bedeutet NICHT 'auf dem Bildschirm angezeigt'! Steuert das Verhalten NACH der Zerstörung/dem Einsammeln des Objekts: an — nach dem 'Tod' wechselt das Objekt in einen Folgezustand (z. B. zeigt ein zerstörbarer Block, was darin ist) und/oder es wird ein Sound abgespielt; aus — das Objekt verschwindet einfach. Bei den meisten gewöhnlichen Dekorationsobjekten ist dies normalerweise deaktiviert.`,
+  "btn.deleteObject": `Objekt löschen`,
+  "tool.paint": `Pinsel`, "tool.pick": `Pipette`, "tool.undo": `Rückgängig (Strg+Z)`,
+  "toggle.grid": `Raster`, "toggle.collision": `Kollisionen`,
+  "toggle.noCompress": `Keine Kompression (sicherer Modus)`,
+  "toggle.noCompress.title": `EMPFOHLEN AKTIVIERT: kodiert die Datei nur mit Literalen, ohne LZ-Treffer — größer (~25KB statt ~9KB), aber der einzige Modus, der bestätigt im echten DOS-Spiel funktioniert`,
+  "toggle.noEscape": `Kein Escape (Diagnose)`,
+  "toggle.noEscape.title": `Deaktiviert das Escape-Byte für lange Treffer (Länge >9) — nur Diagnose, Kompression ist im echten Spiel ohnehin unzuverlässig`,
+  "lbl.zoom": `Zoom`,
+  "hint.html": `Lade mindestens <b>DECORn.CDG</b> und <b>DECORn.BLK</b> eines Levels (Schaltfläche „Dateien wählen", auch mehrere gleichzeitig möglich), oder benutze oben „Spielordner öffnen". REF ist optional. Die Farbpalette wird immer angenähert (die eingebaute Palette von Level 1), da das Originalspiel keine separate Palettendatei mitbringt.<br><br>Zeichnen: Linksklick setzt das gewählte Tile, die Pipette nimmt ein Tile von der Karte. Export baut die .CDG im sqx-Format neu zusammen; die Checkbox „Keine Kompression" ist standardmäßig aktiviert — der einzige Modus, der bestätigt im echten DOS-Spiel lädt (die Datei wird größer, das ist aber kein Problem).<br><br>Um Monster/Items zu bearbeiten, lade zusätzlich <b>POSITn.REF</b> und <b>REFn.REF</b> (optional die Sprite-Dateien <b>S0n.SPR</b>/<b>S1n.SPR</b> für Bildvorschauen), und wechsle dann links zum Reiter „Objekte".<br><br><b>Wichtig zu Objekten:</b> Verschieben, Bearbeiten und Löschen bestehender Objekte ist sicher (der Editor sortiert sie beim Export automatisch nach X — das braucht die Engine für die korrekte Darstellung). Das <b>Hinzufügen neuer</b> Objekte über die ursprüngliche Anzahl hinaus wird aber höchstwahrscheinlich den Speicher im Spiel beschädigen (z. B. ist der Puffer von Level 1 bereits zu 100% voll: 409 von 409) — der Editor warnt vor dem Export, falls sich die Objektanzahl erhöht hat.`,
+  "status.tile": `Tile: `, "status.cellLabel": `Zelle: `, "status.mapsizeLabel": `Kartengröße: `,
+  "status.tilesInSetLabel": `Tiles im Set: `, "status.objectsLabel": `Objekte: `,
+  "status.objWarning": `⚠ mehr als im Original — Risiko von Speicherbeschädigung im Spiel!`,
+  "status.objWarning.title": `Das Spiel reserviert mit hoher Wahrscheinlichkeit einen Puffer fester Größe für POSITn.REF, genau passend zur Originaldatei. Neue Objekte über die ursprüngliche Anzahl hinaus erhöhen die Größe der entpackten Daten und können benachbarten Speicher im Spiel beschädigen (fehlende Objekte, Grafikfehler). Bearbeiten/Verschieben/Löschen bestehender Objekte ist sicher — die Größe wächst dabei nie.`,
+  "footer.credit": `Editor erstellt von <b style="color:var(--amber)">DarkSoL</b> (Discord: <b style="color:var(--teal)">darksol41</b>), basierend auf dem Quellcode der Engine-Reimplementierung von Gregory Montoir — cyx (<i>nicky-0.2.0-src</i>) und mit Hilfe der KI Claude (Anthropic).`,
+  "footer.sqx": `sqx — Kompressionsformat von Nicky Boum (Microids, 1992), Algorithmus aus demselben Quellcode rekonstruiert. Die Karte ist spaltenweise gespeichert (col*H+row), 400×50 Tiles zu je 16×16px, 4bpp planar.`,
+  "err.badHeader": `sqx: ungültiger Header ({j1},{j2},{j3})`, "err.guardLimit": `sqx: Limit für Decodier-Iterationen überschritten`,
+  "confirm.levelSwitch": `Nicht gespeicherte Kartenänderungen gehen beim Levelwechsel verloren. Fortfahren?`,
+  "alert.noFilesForLevel": `Keine Dateien für Level {suffix} im gewählten Ordner gefunden.\nStelle sicher, dass der Ordner Dateien wie DECOR{suffix}.CDG usw. enthält.`,
+  "alert.parseError": `Datei {filename} konnte nicht verarbeitet werden:\n{message}`,
+  "status.mapsizeValue": `{w}×{h} Tiles ({pw}×{ph}px)`, "status.cellValue": `Zeile {row}, Spalte {col}`,
+  "swatch.tileTitle": `Tile #{n}`,
+  "objectType.emptyHint": `Lade REFn.REF, um die Liste der Monster-/Item-Typen zu sehen.`,
+  "objectType.score": `Punkte:`, "objectType.lifes": `Leben:`,
+  "marker.type": `Typ #{num}`, "marker.hidden": ` [versteckt]`, "marker.noSprite": ` [kein Sprite]`,
+  "warning.overLimitTitle": `Aktuell {current} Objekte, die Originaldatei hatte {original}. Das Spiel reserviert mit hoher Wahrscheinlichkeit einen Puffer fester Größe für POSITn.REF, genau passend zur Originaldatei. Neue Objekte über die ursprüngliche Anzahl hinaus erhöhen die Größe der entpackten Daten und können benachbarten Speicher im Spiel beschädigen (fehlende Objekte, Grafikfehler). Bearbeiten/Verschieben/Löschen bestehender Objekte ist sicher — die Größe wächst dabei nie.`,
+  "confirm.exportOverLimit": `Aktuell {current} Objekte, die Originaldatei hatte {original}.\n\nDas Spiel reserviert mit hoher Wahrscheinlichkeit einen Puffer FESTER Größe für POSITn.REF, genau passend zur Originaldatei. Eine Erhöhung der Objektanzahl erhöht die Größe der entpackten Daten und kann benachbarten Speicher im Spiel beschädigen (fehlende Objekte, Grafikfehler, Instabilität) — das könnte genau das sein, was du schon gesehen hast.\n\nLöschen und Bearbeiten/Verschieben bestehender Objekte ist SICHER.\n\nTrotzdem exportieren?`,
+},
+pt: {
+  "tagline": `editor de níveis do Nicky Boom (DOS, 1992) — formato sqx totalmente decifrado e verificado byte a byte`,
+  "lbl.language": `Idioma:`, "btn.openFolder": `ABRIR PASTA DO JOGO`, "lbl.level": `Nível:`,
+  "opt.1A": `1A (chefe)`, "opt.2A": `2A (chefe)`, "opt.3A": `3A (chefe)`, "opt.4A": `4A (chefe)`,
+  "slot.cdg": `DECORn.CDG (mapa) *`, "slot.blk": `DECORn.BLK (tiles) *`, "slot.ref": `DECORn.REF (atributos)`,
+  "slot.pal": `DECORn.PAL (paleta)`, "slot.posit": `POSITn.REF (objetos)`, "slot.animref": `REFn.REF (tipos)`,
+  "slot.spr": `S0n/S1n.SPR (sprites)`, "btn.manualFiles": `OU ESCOLHER ARQUIVOS MANUALMENTE`,
+  "btn.exportCdg": `Exportar .CDG`, "btn.exportPosit": `Exportar POSIT.REF`,
+  "mode.tiles": `Tiles`, "mode.objects": `Objetos`,
+  "h2.tileset": `Conjunto de tiles`, "h2.objectTypes": `Tipos de objetos`, "h2.selectedObject": `Objeto selecionado`,
+  "insp.type": `Tipo (anim_num)`, "insp.x": `X (px)`, "insp.y": `Y (px)`, "insp.refref": `ref_ref_index`, "insp.tilenum": `tile_num`,
+  "insp.visible": `«Visible» (comportamento após destruição — ver dica)`,
+  "insp.visible.title": `NÃO significa 'mostrado na tela'! Controla o comportamento DEPOIS que o objeto é destruído/coletado: ativado — após a 'morte' o objeto passa para um estado seguinte (ex.: um bloco quebrável revela o que há dentro) e/ou um som é reproduzido; desativado — o objeto simplesmente desaparece. A maioria dos objetos decorativos comuns normalmente tem isso desativado.`,
+  "btn.deleteObject": `Excluir objeto`,
+  "tool.paint": `Pincel`, "tool.pick": `Conta-gotas`, "tool.undo": `Desfazer (Ctrl+Z)`,
+  "toggle.grid": `Grade`, "toggle.collision": `Colisões`,
+  "toggle.noCompress": `Sem compressão (modo seguro)`,
+  "toggle.noCompress.title": `RECOMENDADO ATIVADO: codifica o arquivo apenas com literais, sem correspondências LZ — maior (~25KB em vez de ~9KB), mas o único modo confirmado que funciona no jogo DOS real`,
+  "toggle.noEscape": `Sem escape (diagnóstico)`,
+  "toggle.noEscape.title": `Desativa o byte de escape em correspondências longas (tamanho >9) — apenas diagnóstico, a compressão é pouco confiável no jogo real de qualquer forma`,
+  "lbl.zoom": `Zoom`,
+  "hint.html": `Carregue pelo menos <b>DECORn.CDG</b> e <b>DECORn.BLK</b> de um nível (botão "Escolher arquivos", pode selecionar vários de uma vez), ou use "Abrir pasta do jogo" acima. REF é opcional. A paleta de cores é sempre aproximada (a paleta embutida do nível 1), já que o jogo original não inclui um arquivo de paleta separado.<br><br>Desenho: clique esquerdo coloca o tile selecionado, o conta-gotas pega um tile do mapa. Exportar reconstrói o .CDG em formato sqx; a caixa "Sem compressão" vem marcada por padrão — é o único modo confirmado que carrega no jogo DOS real (o arquivo ficará maior, mas isso não é um problema).<br><br>Para editar monstros/itens, carregue também <b>POSITn.REF</b> e <b>REFn.REF</b> (opcionalmente os arquivos de sprite <b>S0n.SPR</b>/<b>S1n.SPR</b> para pré-visualizações), depois mude para a aba "Objetos" à esquerda.<br><br><b>Importante sobre objetos:</b> mover, editar e excluir objetos existentes é seguro (o editor os reordena por X na exportação — o motor precisa disso para exibi-los corretamente). Já <b>adicionar novos</b> objetos além da quantidade original provavelmente corromperá a memória do jogo (por exemplo, o buffer do nível 1 já está 100% cheio: 409 de 409) — o editor avisará antes da exportação se a quantidade de objetos aumentou.`,
+  "status.tile": `Tile: `, "status.cellLabel": `Célula: `, "status.mapsizeLabel": `Tamanho do mapa: `,
+  "status.tilesInSetLabel": `Tiles no conjunto: `, "status.objectsLabel": `Objetos: `,
+  "status.objWarning": `⚠ mais que o original — risco de corrupção de memória no jogo!`,
+  "status.objWarning.title": `O jogo quase certamente aloca um buffer de tamanho fixo para POSITn.REF, dimensionado exatamente para o arquivo original. Adicionar novos objetos além da quantidade original aumenta o tamanho dos dados descompactados e pode corromper a memória adjacente no jogo (objetos ausentes, falhas gráficas). Editar/mover/excluir objetos existentes é seguro — o tamanho nunca aumenta.`,
+  "footer.credit": `Editor feito por <b style="color:var(--amber)">DarkSoL</b> (Discord: <b style="color:var(--teal)">darksol41</b>), com base no código-fonte da reimplementação do motor de Gregory Montoir — cyx (<i>nicky-0.2.0-src</i>) e com a ajuda da IA Claude (Anthropic).`,
+  "footer.sqx": `sqx — formato de compressão do Nicky Boum (Microids, 1992), algoritmo recuperado do mesmo código-fonte. O mapa é armazenado por colunas (col*H+row), 400×50 tiles de 16×16px, 4bpp planar.`,
+  "err.badHeader": `sqx: cabeçalho inválido ({j1},{j2},{j3})`, "err.guardLimit": `sqx: limite de iterações de decodificação excedido`,
+  "confirm.levelSwitch": `As alterações não salvas no mapa serão perdidas ao trocar de nível. Continuar?`,
+  "alert.noFilesForLevel": `Nenhum arquivo encontrado para o nível {suffix} na pasta selecionada.\nVerifique se a pasta contém arquivos como DECOR{suffix}.CDG etc.`,
+  "alert.parseError": `Não foi possível analisar o arquivo {filename}:\n{message}`,
+  "status.mapsizeValue": `{w}×{h} tiles ({pw}×{ph}px)`, "status.cellValue": `linha {row}, coluna {col}`,
+  "swatch.tileTitle": `Tile #{n}`,
+  "objectType.emptyHint": `Carregue REFn.REF para ver a lista de tipos de monstros/itens.`,
+  "objectType.score": `pontos:`, "objectType.lifes": `vidas:`,
+  "marker.type": `tipo #{num}`, "marker.hidden": ` [oculto]`, "marker.noSprite": ` [sem sprite]`,
+  "warning.overLimitTitle": `Atualmente {current} objetos, o arquivo original tinha {original}. O jogo quase certamente aloca um buffer de tamanho fixo para POSITn.REF, dimensionado exatamente para o arquivo original. Adicionar novos objetos além da quantidade original aumenta o tamanho dos dados descompactados e pode corromper a memória adjacente no jogo (objetos ausentes, falhas gráficas). Editar/mover/excluir objetos existentes é seguro — o tamanho nunca aumenta.`,
+  "confirm.exportOverLimit": `Atualmente {current} objetos, o arquivo original tinha {original}.\n\nO jogo quase certamente aloca um buffer de tamanho FIXO para POSITn.REF, dimensionado exatamente para o arquivo original. Aumentar a quantidade de objetos aumenta o tamanho dos dados descompactados e pode corromper a memória adjacente no jogo (objetos ausentes, falhas gráficas, instabilidade) — isso pode ser exatamente o que você já viu.\n\nExcluir e editar/mover objetos existentes é SEGURO.\n\nExportar mesmo assim?`,
+},
+};
+
+let currentLang = 'en';
+function t(key, vars){
+  let s = (I18N[currentLang] && I18N[currentLang][key]);
+  if(s===undefined) s = I18N.en[key];
+  if(s===undefined) return key;
+  if(vars) for(const k in vars) s = s.split('{'+k+'}').join(vars[k]);
+  return s;
+}
+function applyI18n(){
+  document.querySelectorAll('[data-i18n]').forEach(el=>{ el.textContent = t(el.dataset.i18n); });
+  document.querySelectorAll('[data-i18n-title]').forEach(el=>{ el.title = t(el.dataset.i18nTitle); });
+  document.querySelectorAll('[data-i18n-html]').forEach(el=>{ el.innerHTML = t(el.dataset.i18nHtml); });
+  // обновляем динамические части, у которых текст зависит от языка
+  if(typeof state!=='undefined'){
+    if(state.grid){
+      document.getElementById('stSize').textContent = t('status.mapsizeValue', {w:MAP_W, h:MAP_H, pw:MAP_W*TILE, ph:MAP_H*TILE});
+    }
+    if(typeof buildObjectTypeList==='function' && document.getElementById('objectTypeList')) buildObjectTypeList();
+    if(typeof renderObjectsLayer==='function' && document.getElementById('objectsLayer')) renderObjectsLayer();
+    if(typeof updateObjOverLimitWarning==='function') updateObjOverLimitWarning();
+  }
+}
+document.getElementById('langSelect').addEventListener('change', (e)=>{
+  currentLang = e.target.value;
+  applyI18n();
+});
+
+
+/* ============================================================
+   КОДЕК sqx — decode/encode (прямой порт sqx_decoder.c)
+   ============================================================ */
+function readU16LE(buf, i){ return buf[i] | (buf[i+1] << 8); }
+
+class SqxDecoder {
+  constructor(src){ this.src=src; this.sp=0; this.dst=[]; this.code=1; this.carry=0; }
+  byte_(){ const b=this.src[this.sp]; this.sp+=1; return b; }
+  word_(){ const v=readU16LE(this.src,this.sp); this.sp+=2; return v; }
+  shr_(){ this.carry=this.code&1; this.code=(this.code>>1)&0xffff; }
+  rcr_(){ const c=this.code&1; this.code=(this.code>>1)&0xffff; if(this.carry) this.code|=0x8000; this.carry=c; }
+  rclInto_(box){ const c=(box[0]&0x8000)!==0; box[0]=(box[0]<<1)&0xffff; if(this.carry) box[0]|=1; this.carry=c?1:0; }
+  opLiteral_(){ this.dst.push(this.byte_()); return 0; }
+  opShortCopy_(){
+    const length=[0];
+    this.shr_();
+    if(this.code===0){ this.code=this.word_(); this.rcr_(); this.rclInto_(length); this.shr_(); }
+    else { this.rclInto_(length); this.shr_(); if(this.code===0){ this.code=this.word_(); this.rcr_(); } }
+    this.rclInto_(length);
+    const offset=0xff00|this.byte_();
+    const off16=offset>=0x8000?offset-0x10000:offset;
+    const srcPos=this.dst.length+off16;
+    for(let i=0;i<length[0]+2;i++) this.dst.push(this.dst[srcPos+i]);
+    return 0;
+  }
+  opLongCopy_(c1,c2,c3){
+    const word=this.word_();
+    let length=word&0xff;
+    let offset=(word>>c1)&0xffff;
+    offset|=c2<<8;
+    length&=c3;
+    if(length===0){ length=this.byte_(); if(length===0) return 1; }
+    const off16=offset>=0x8000?offset-0x10000:offset;
+    const srcPos=this.dst.length+off16;
+    for(let i=0;i<length+2;i++) this.dst.push(this.dst[srcPos+i]);
+    return 0;
+  }
+  decode(){
+    const j1=this.byte_(), j2=this.byte_(), j3=this.byte_();
+    if(j1+j2+j3!==3 || j1===j2 || j2===j3 || j3===j1) throw new Error(t('err.badHeader',{j1,j2,j3}));
+    const c1=this.byte_();
+    let c2=0,c3=0;
+    for(let i=0;i<c1;i++){ c2=((c2>>1)|0x80)&0xff; c3=((c3<<1)|1)&0xff; }
+    const ops=[ ()=>this.opLiteral_(), ()=>this.opShortCopy_(), ()=>this.opLongCopy_(c1,c2,c3) ];
+    const order=[j1,j2,j3];
+    let end=0, guard=0;
+    while(!end){
+      guard++; if(guard>20000000) throw new Error(t('err.guardLimit'));
+      this.shr_();
+      if(this.code===0){ this.code=this.word_(); this.rcr_(); }
+      if(!this.carry){ end=ops[order[0]](); }
+      else{
+        this.shr_();
+        if(this.code===0){ this.code=this.word_(); this.rcr_(); }
+        if(!this.carry){ end=ops[order[1]](); } else { end=ops[order[2]](); }
+      }
+    }
+    return Uint8Array.from(this.dst);
+  }
+}
+function sqxDecode(raw, skip=2){ return new SqxDecoder(raw.slice(skip)).decode(); }
+
+class SqxEncoder {
+  constructor(j1=0,j2=1,j3=2,c1=3){
+    this.j1=j1; this.j2=j2; this.j3=j3; this.c1=c1;
+    let c2=0,c3=0;
+    for(let i=0;i<c1;i++){ c2=((c2>>1)|0x80)&0xff; c3=((c3<<1)|1)&0xff; }
+    this.c2=c2; this.c3=c3;
+    this.allCtrlBits=[]; this.opRecords=[]; this.curBits=[]; this.curData=[];
+  }
+  bit_(b){ this.curBits.push(b&1); }
+  dataByte_(v){ this.curData.push(["B", v&0xff]); }
+  dataWord_(v){ this.curData.push(["W", v&0xffff]); }
+  commit_(){
+    for(const b of this.curBits) this.allCtrlBits.push(b);
+    const endIdx=this.allCtrlBits.length;
+    this.opRecords.push([endIdx, this.curData]);
+    this.curBits=[]; this.curData=[];
+  }
+  select_(op){
+    if(op===this.j1) this.bit_(0);
+    else if(op===this.j2){ this.bit_(1); this.bit_(0); }
+    else { this.bit_(1); this.bit_(1); }
+  }
+  literal(v){ this.select_(0); this.dataByte_(v); this.commit_(); }
+  longCopy(offset,length){
+    const L=length-2;
+    this.select_(2);
+    const offU=offset&0xffff;
+    const M=offU & ((1<<(16-this.c1))-1);
+    if(L<=this.c3){ this.dataWord_(((M<<this.c1)|L)&0xffff); }
+    else { this.dataWord_((M<<this.c1)&0xffff); this.dataByte_(L); }
+    this.commit_();
+  }
+  terminate(){ this.select_(2); this.dataWord_(0); this.dataByte_(0); this.commit_(); }
+  finish(){
+    this.terminate();
+    const bits=this.allCtrlBits.slice();
+    while(bits.length%16!==0) bits.push(0);
+    const nWords=bits.length/16;
+    const words=[];
+    for(let g=0; g<nWords; g++){ let w=0; for(let i=0;i<16;i++) w|=bits[g*16+i]<<i; words.push(w); }
+    const out=[];
+    let flushed=0;
+    for(const [endIdx, dataItems] of this.opRecords){
+      while(flushed<nWords && flushed*16<endIdx){ const w=words[flushed]; out.push(w&0xff,(w>>8)&0xff); flushed++; }
+      for(const [kind,value] of dataItems){
+        if(kind==="B") out.push(value);
+        else out.push(value&0xff,(value>>8)&0xff);
+      }
+    }
+    while(flushed<nWords){ const w=words[flushed]; out.push(w&0xff,(w>>8)&0xff); flushed++; }
+    return Uint8Array.from(out);
+  }
+}
+function sqxCompress(data, opts={}){
+  const j1=opts.j1??0, j2=opts.j2??1, j3=opts.j3??2, c1=opts.c1??3;
+  const minMatch=opts.minMatch??3;
+  const allowOverlap=opts.allowOverlap??false;
+  const allowEscape=opts.allowEscape??true;
+  const enc=new SqxEncoder(j1,j2,j3,c1);
+  const maxOff = opts.maxWindow ? Math.min(1<<(16-c1), opts.maxWindow) : (1<<(16-c1));
+  const maxLen=257;
+  const maxDirectLen = enc.c3+2;
+  const n=data.length;
+  const table=new Map();
+  function key3(i){ return (data[i]<<16)|(data[i+1]<<8)|data[i+2]; }
+  let i=0;
+  while(i<n){
+    const limCap = allowEscape ? maxLen : maxDirectLen;
+    let bestLen=0, bestOff=0;
+    if(i+3<=n){
+      const k=key3(i);
+      const cands=table.get(k);
+      if(cands){
+        const lo=Math.max(0, i-maxOff);
+        for(let ci=cands.length-1; ci>=0; ci--){
+          const p=cands[ci];
+          if(p<lo) break;
+          const offset=i-p;
+          let limit=Math.min(limCap, n-i);
+          if(!allowOverlap) limit=Math.min(limit, offset);
+          let L=0;
+          while(L<limit && data[p+L]===data[i+L]) L++;
+          if(L>bestLen){ bestLen=L; bestOff=offset; if(bestLen>=limCap) break; }
+        }
+      }
+    }
+    if(bestLen>=minMatch){
+      enc.longCopy(-bestOff, bestLen);
+      const end=i+bestLen;
+      while(i<end){ if(i+3<=n){ const k=key3(i); if(!table.has(k)) table.set(k,[]); table.get(k).push(i); } i++; }
+    } else {
+      if(i+3<=n){ const k=key3(i); if(!table.has(k)) table.set(k,[]); table.get(k).push(i); }
+      enc.literal(data[i]); i++;
+    }
+  }
+  return enc.finish();
+}
+
+/* ============================================================
+   Графика тайлов / карта
+   ============================================================ */
+const MAP_W=400, MAP_H=50, TILE=16;
+
+function decodeTiles(blk){
+  const nTiles=Math.floor(blk.length/128);
+  const tiles=new Uint8Array(nTiles*256);
+  let p=0;
+  for(let t=0;t<nTiles;t++){
+    for(let y=0;y<16;y++){
+      const p0=[blk[p],blk[p+2],blk[p+4],blk[p+6]];
+      const p1=[blk[p+1],blk[p+3],blk[p+5],blk[p+7]];
+      p+=8;
+      for(let b=0;b<8;b++){
+        let val=0; for(let pl=0;pl<4;pl++){ if(p0[pl]&(1<<(7-b))) val|=(1<<pl); }
+        tiles[t*256+y*16+b]=val;
+      }
+      for(let b=0;b<8;b++){
+        let val=0; for(let pl=0;pl<4;pl++){ if(p1[pl]&(1<<(7-b))) val|=(1<<pl); }
+        tiles[t*256+y*16+8+b]=val;
+      }
+    }
+  }
+  return tiles;
+}
+function buildGridFromCdg(cdg){
+  const grid=new Uint8Array(MAP_W*MAP_H);
+  for(let col=0; col<MAP_W; col++) for(let row=0; row<MAP_H; row++) grid[row*MAP_W+col]=cdg[col*MAP_H+row];
+  return grid;
+}
+function serializeGridToCdg(grid){
+  const cdg=new Uint8Array(MAP_W*MAP_H);
+  for(let col=0; col<MAP_W; col++) for(let row=0; row<MAP_H; row++) cdg[col*MAP_H+row]=grid[row*MAP_W+col];
+  return cdg;
+}
+function parsePalette(bytes){
+  const pal=new Uint8Array(16*3);
+  for(let i=0;i<16;i++){
+    const word=(bytes[i*2]<<8)|bytes[i*2+1];
+    let r=(word>>8)&0xF, g=(word>>4)&0xF, b=word&0xF;
+    r=r|(r<<4); g=g|(g<<4); b=b|(b<<4);
+    pal[i*3]=r; pal[i*3+1]=g; pal[i*3+2]=b;
+  }
+  return pal;
+}
+function parseTileAttrs(ref){
+  const n=Math.floor(ref.length/8);
+  const flags=new Uint8Array(n);
+  for(let i=0;i<n;i++) flags[i]=ref[i*8];
+  return flags; // бит 0x01 = твёрдый тайл (коллизия)
+}
+
+/* ---- POSITn.REF: расстановка монстров/предметов, запись 10 байт ---- */
+function parsePositions(bytes){
+  const objs=[];
+  let p=0;
+  while(p+10<=bytes.length){
+    const num=bytes[p]|(bytes[p+1]<<8);
+    if(num & 0x8000) break;
+    const mapX=bytes[p+2]|(bytes[p+3]<<8);
+    const mapY=bytes[p+4]|(bytes[p+5]<<8);
+    const refRefIndex=bytes[p+6]|(bytes[p+7]<<8);
+    const visible=bytes[p+8];
+    const tileNum=bytes[p+9];
+    objs.push({num, mapX, mapY, refRefIndex, visible, tileNum});
+    p+=10;
+  }
+  return objs;
+}
+function serializePositions(objs){
+  // ВАЖНО: движок определяет видимые объекты "скользящим окном" по экрану,
+  // которое продвигается по массиву объектов, пока map_pos_x не выйдет за
+  // границы экрана (game_update_cur_objects_ptr() в game.c) — это РАБОТАЕТ
+  // ТОЛЬКО если объекты идут в файле строго по возрастанию map_pos_x. Поэтому
+  // перед записью всегда пересортировываем по X, независимо от порядка
+  // редактирования в интерфейсе (иначе сдвинутые объекты "пропадают").
+  const sorted = objs.slice().sort((a,b)=>a.mapX-b.mapX);
+  const out=new Uint8Array((sorted.length+1)*10);
+  let p=0;
+  for(const o of sorted){
+    out[p]=o.num&0xFF; out[p+1]=(o.num>>8)&0xFF;
+    out[p+2]=o.mapX&0xFF; out[p+3]=(o.mapX>>8)&0xFF;
+    out[p+4]=o.mapY&0xFF; out[p+5]=(o.mapY>>8)&0xFF;
+    out[p+6]=o.refRefIndex&0xFF; out[p+7]=(o.refRefIndex>>8)&0xFF;
+    out[p+8]=o.visible&0xFF;
+    out[p+9]=o.tileNum&0xFF;
+    p+=10;
+  }
+  out[p]=0xFF; out[p+1]=0xFF; // терминатор: num со старшим битом, остальное неважно
+  return out;
+}
+
+/* ---- REFn.REF: таблица "типов" монстров/предметов, запись 68 (0x44) байт ---- */
+function parseAnimDefs(bytes){
+  const n=Math.floor(bytes.length/68);
+  const recs=[];
+  for(let i=0;i<n;i++){
+    const o=i*68;
+    recs.push({
+      index:i,
+      unk0:bytes[o], lifes:bytes[o+1], cycles:bytes[o+2], unk3:bytes[o+3],
+      initSpriteNum:bytes[o+7],
+      collidingOpcode:bytes[o+8], logicOpcode:bytes[o+9], soundNum:bytes[o+10],
+      spriteNum:bytes[o+12]|(bytes[o+13]<<8),
+      spriteFlags:bytes[o+14]|(bytes[o+15]<<8),
+      defaultSpriteNum:bytes[o+16]|(bytes[o+17]<<8),
+      defaultSpriteFlags:bytes[o+18]|(bytes[o+19]<<8),
+      animW:bytes[o+20]|(bytes[o+21]<<8),
+      animH:bytes[o+22]|(bytes[o+23]<<8),
+      score:bytes[o+24]|(bytes[o+25]<<8),
+    });
+  }
+  return recs;
+}
+
+/* ---- S0n/S1n.SPR: таблица смещений (u16 LE) + кадры (w,h + 4bpp planar) ---- */
+function decodeSpriteSheet(bytes){
+  let i=0;
+  const offsets=[];
+  while(i+1<bytes.length){
+    const off=bytes[i]|(bytes[i+1]<<8);
+    if(off===0 || off>=bytes.length) break;
+    offsets.push(off);
+    i+=2;
+    if(offsets.length>0 && i>=Math.min(...offsets)) break;
+  }
+  const frames=offsets.map(off=>{
+    if(off+4>bytes.length) return {w:0,h:0,idx:new Uint8Array(0)};
+    const w=bytes[off]|(bytes[off+1]<<8);
+    const h=bytes[off+2]|(bytes[off+3]<<8);
+    let p=off+4;
+    const idx=new Uint8Array(w*h);
+    const groups=Math.ceil(w/8);
+    for(let row=0; row<h; row++){
+      for(let g=0; g<groups; g++){
+        const d0=bytes[p]||0, d1=bytes[p+1]||0, d2=bytes[p+2]||0, d3=bytes[p+3]||0;
+        p+=4;
+        for(let b=0;b<8;b++){
+          const x=g*8+b; if(x>=w) continue;
+          let val=0;
+          if(d0&(1<<(7-b))) val|=1;
+          if(d1&(1<<(7-b))) val|=2;
+          if(d2&(1<<(7-b))) val|=4;
+          if(d3&(1<<(7-b))) val|=8;
+          idx[row*w+x]=val;
+        }
+      }
+    }
+    return {w,h,idx};
+  });
+  return frames;
+}
+
+const DEFAULT_PALETTE = new Uint8Array([
+  0,0,0,  231,99,0,  49,0,0,  99,66,66,  148,99,66,  165,132,99,  198,165,132,  0,132,214,
+  231,165,66,  198,0,0,  99,132,231,  66,99,99,  66,115,165,  132,132,0,  165,165,0,  231,198,231
+]);
+
+/* ============================================================
+   Состояние приложения
+   ============================================================ */
+const state = {
+  blk:null, cdg:null, ref:null, pal:null,
+  tiles:null, nTiles:0, grid:null, tileAttrs:null,
+  palette:DEFAULT_PALETTE,
+  selectedTile:0, tool:'paint', zoom:1, showGrid:false, showCollision:false,
+  isPainting:false, lastPaintIdx:-1,
+  undoStack:[],
+  fileNames:{cdg:null, blk:null, ref:null},
+  cdgHeader:null, // оригинальный 6-байтовый заголовок загруженного CDG (для верного экспорта)
+  posit:null, positHeader:null, positFileName:null, positOriginalCount:null,
+  objects:[], animDefs:[], spriteSheets:{}, levelNum:null, // {filename: frames[]}
+  mode:'tiles', // 'tiles' | 'objects'
+  selectedObjectType:0, selectedObjectIndex:null,
+  placingNewObject:false, draggingObjectIndex:null,
+  tileCache:null, // Map tileId -> Uint8ClampedArray(16*16*4)
+  folderFiles:null, currentLevelSuffix:null,
+};
+
+const canvas=document.getElementById('mapCanvas');
+const ctx=canvas.getContext('2d');
+
+/* ------------- загрузка файлов ------------- */
+document.getElementById('fileInput').addEventListener('change', async (e)=>{
+  for(const file of e.target.files) await loadFile(file);
+  e.target.value='';
+  tryBuildEverything();
+  refreshObjectsUI();
+});
+
+/* ------------- загрузка папки целиком + переключение уровня ------------- */
+document.getElementById('folderInput').addEventListener('change', async (e)=>{
+  const filesByName={};
+  for(const f of e.target.files) filesByName[f.name.toLowerCase()]=f;
+  if(Object.keys(filesByName).length===0) return;
+  state.folderFiles=filesByName;
+  document.getElementById('levelSwitcher').style.display='flex';
+  document.getElementById('levelSelect').value='1';
+  await loadLevelFromFolder('1');
+  e.target.value='';
+});
+document.getElementById('levelSelect').addEventListener('change', async (e)=>{
+  if(state.undoStack && state.undoStack.length>0 && !confirm(t('confirm.levelSwitch'))){
+    e.target.value=state.currentLevelSuffix;
+    return;
+  }
+  await loadLevelFromFolder(e.target.value);
+});
+
+async function loadLevelFromFolder(suffix){
+  if(!state.folderFiles) return;
+  resetLevelState();
+  const sfx=suffix.toLowerCase();
+  const base=sfx.replace('a','');
+  const want=[
+    'decor'+sfx+'.cdg',
+    'decor'+base+'.blk',
+    'decor'+base+'.ref',
+    'posit'+sfx+'.ref',
+    'ref'+base+'.ref',
+    's0'+base+'.spr',
+    's1'+base+'.spr',
+  ];
+  let foundAny=false;
+  for(const fname of want){
+    const file=state.folderFiles[fname];
+    if(file){ await loadFile(file); foundAny=true; }
+    else console.info('file not found in folder:', fname);
+  }
+  state.currentLevelSuffix=suffix;
+  tryBuildEverything();
+  refreshObjectsUI();
+  if(!foundAny){
+    alert(t('alert.noFilesForLevel', {suffix}));
+  }
+}
+
+/* сбрасывает всё состояние редактора перед загрузкой нового уровня (важно при
+   переключении через выпадающий список — иначе данные разных уровней смешаются) */
+function resetLevelState(){
+  state.cdg=null; state.blk=null; state.ref=null; state.posit=null;
+  state.objects=[]; state.animDefs=[]; state.spriteSheets={}; state.levelNum=null;
+  state.cdgHeader=null; state.positHeader=null; state.positFileName=null; state.positOriginalCount=null;
+  state.fileNames={cdg:null, blk:null, ref:null, pal:null};
+  state.grid=null; state.tiles=null; state.nTiles=0; state.tileAttrs=null; state.palette=DEFAULT_PALETTE;
+  state.selectedObjectIndex=null; state.selectedObjectType=0; state.draggingObjectIndex=null;
+  state.undoStack=[]; state.isPainting=false;
+
+  ['slotCDG','slotBLK','slotREF','slotPOSIT','slotANIMREF','slotSPR'].forEach(id=>markSlot(id,false));
+  canvas.style.display='none';
+  document.getElementById('gridCanvas').style.display='none';
+  document.getElementById('objectsLayer').style.display='none';
+  document.getElementById('objectsLayer').innerHTML='';
+  document.getElementById('hint').style.display='block';
+  document.getElementById('exportBtn').disabled=true;
+  document.getElementById('exportPositBtn').disabled=true;
+  document.getElementById('paletteGrid').innerHTML='';
+  document.getElementById('objectTypeList').innerHTML='';
+  document.getElementById('objectInspector').style.display='none';
+  document.getElementById('stHover').textContent='—';
+  document.getElementById('stCell').textContent='—';
+  document.getElementById('stSize').textContent='—';
+  document.getElementById('stTiles').textContent='—';
+  document.getElementById('stObjCount').textContent='—';
+  document.getElementById('stObjWarning').style.display='none';
+}
+
+async function loadFile(file){
+  const name=file.name.toLowerCase();
+  const buf=new Uint8Array(await file.arrayBuffer());
+  try{
+    if(name.endsWith('.cdg')){
+      state.cdg=sqxDecode(buf); state.fileNames.cdg=file.name; markSlot('slotCDG',true);
+      // извлекаем номер уровня из имени файла (DECOR1.CDG -> "1"), чтобы потом точно
+      // знать, какой именно S0n.SPR/S1n.SPR соответствует ЭТОМУ уровню — иначе при
+      // одновременной загрузке нескольких S0x.SPR (S00,S01,S02...) можно случайно
+      // взять спрайты другого уровня.
+      const lvlMatch = name.match(/decor(\d)/);
+      state.levelNum = lvlMatch ? lvlMatch[1] : null;
+      // сохраняем оригинальный заголовок файла (6 байт: 2 пропускаемых + j1,j2,j3,c1),
+      // чтобы при экспорте использовать ИМЕННО ту перестановку/параметры, которые
+      // использовала исходная игра для этого файла — а не наши значения по умолчанию.
+      state.cdgHeader = buf.slice(0,6);
+    } else if(name.endsWith('.blk') || name.endsWith('.til')){
+      state.blk=sqxDecode(buf); state.fileNames.blk=file.name; markSlot('slotBLK',true);
+    } else if(name.endsWith('.ref')){
+      // ".ref" встречается у трёх разных по смыслу файлов: DECORn.REF (атрибуты
+      // тайлов), POSITn.REF (расстановка монстров/предметов) и REFn.REF (таблица
+      // "типов" монстров/предметов) — различаем по имени файла.
+      if(name.startsWith('decor')){
+        state.ref=sqxDecode(buf); state.fileNames.ref=file.name; markSlot('slotREF',true);
+      } else if(name.startsWith('posit')){
+        const dec=sqxDecode(buf);
+        state.posit=dec; state.positHeader=buf.slice(0,6); state.positFileName=file.name;
+        state.objects=parsePositions(dec);
+        state.positOriginalCount=state.objects.length;
+        markSlot('slotPOSIT',true);
+        document.getElementById('exportPositBtn').disabled=false;
+      } else {
+        const dec=sqxDecode(buf);
+        state.animDefs=parseAnimDefs(dec);
+        markSlot('slotANIMREF',true);
+      }
+    } else if(name.endsWith('.spr')){
+      const dec=sqxDecode(buf);
+      state.spriteSheets[file.name]=decodeSpriteSheet(dec);
+      markSlot('slotSPR',true);
+    } else {
+      console.warn('Unknown file type, skipped:', file.name);
+    }
+  }catch(err){
+    alert(t('alert.parseError', {filename:file.name, message:err.message}));
+    console.error(err);
+  }
+}
+function markSlot(id, on){
+  document.getElementById(id).classList.toggle('loaded', on);
+}
+
+function tryBuildEverything(){
+  if(!state.blk || !state.cdg) return;
+  state.tiles=decodeTiles(state.blk);
+  state.nTiles=Math.floor(state.blk.length/128);
+  state.grid=buildGridFromCdg(state.cdg);
+  state.palette = DEFAULT_PALETTE; // PAL отсутствует в оригинальной игре — используем восстановленную палитру
+  state.tileAttrs = state.ref ? parseTileAttrs(state.ref) : null;
+  state.undoStack=[];
+  buildTileCache();
+  document.getElementById('hint').style.display='none';
+  canvas.style.display='block';
+  canvas.width=MAP_W*TILE; canvas.height=MAP_H*TILE;
+  applyZoom();
+  renderFull();
+  buildPalettePanel();
+  document.getElementById('exportBtn').disabled=false;
+  document.getElementById('stSize').textContent = t('status.mapsizeValue', {w:MAP_W, h:MAP_H, pw:MAP_W*TILE, ph:MAP_H*TILE});
+  document.getElementById('stTiles').textContent = state.nTiles;
+}
+
+/* ------------- рендеринг ------------- */
+function buildTileCache(){
+  state.tileCache=new Map();
+  for(let t=0;t<state.nTiles;t++) state.tileCache.set(t, tileToRGBA(t));
+}
+function tileToRGBA(tileId){
+  const out=new Uint8ClampedArray(16*16*4);
+  const base=tileId*256;
+  const pal=state.palette;
+  const solid = state.tileAttrs ? (state.tileAttrs[tileId]&1) : 0;
+  for(let p=0;p<256;p++){
+    const idx=state.tiles[base+p];
+    out[p*4]=pal[idx*3]; out[p*4+1]=pal[idx*3+1]; out[p*4+2]=pal[idx*3+2]; out[p*4+3]=255;
+    if(state.showCollision && solid){
+      out[p*4]=Math.min(255,out[p*4]*0.6+209*0.4);
+      out[p*4+1]=Math.round(out[p*4+1]*0.6);
+      out[p*4+2]=Math.round(out[p*4+2]*0.6);
+    }
+  }
+  return out;
+}
+function renderFull(){
+  if(!state.grid) return;
+  const img=ctx.createImageData(MAP_W*TILE, MAP_H*TILE);
+  for(let row=0; row<MAP_H; row++){
+    for(let col=0; col<MAP_W; col++){
+      const tid=state.grid[row*MAP_W+col];
+      const block=state.tileCache.get(tid) || state.tileCache.get(0);
+      const ox=col*TILE, oy=row*TILE;
+      for(let y=0;y<TILE;y++){
+        const destRow=((oy+y)*img.width + ox)*4;
+        const srcRow=y*TILE*4;
+        img.data.set(block.subarray(srcRow, srcRow+TILE*4), destRow);
+      }
+    }
+  }
+  ctx.putImageData(img,0,0);
+}
+function renderCell(row,col){
+  const tid=state.grid[row*MAP_W+col];
+  const block=state.tileCache.get(tid) || state.tileCache.get(0);
+  const img=new ImageData(new Uint8ClampedArray(block), TILE, TILE);
+  ctx.putImageData(img, col*TILE, row*TILE);
+}
+
+/* перестроить кэш и весь холст, когда меняется палитра/коллизии/REF */
+function rebuildVisuals(){
+  if(!state.tiles) return;
+  buildTileCache();
+  renderFull();
+}
+
+/* ------------- палитра тайлов (боковая панель) ------------- */
+function buildPalettePanel(){
+  const wrap=document.getElementById('paletteGrid');
+  wrap.innerHTML='';
+  for(let ti=0;ti<state.nTiles;ti++){
+    const sw=document.createElement('canvas');
+    sw.width=16; sw.height=16;
+    sw.className='swatch'+(ti===state.selectedTile?' sel':'');
+    sw.title=t('swatch.tileTitle',{n:ti});
+    sw.dataset.tile=ti;
+    const sctx=sw.getContext('2d');
+    sctx.putImageData(new ImageData(new Uint8ClampedArray(state.tileCache.get(ti)),16,16),0,0);
+    sw.addEventListener('click', ()=>{
+      state.selectedTile=ti;
+      document.querySelectorAll('.swatch').forEach(s=>s.classList.remove('sel'));
+      sw.classList.add('sel');
+    });
+    wrap.appendChild(sw);
+  }
+}
+
+/* ------------- инструменты/тулбар ------------- */
+document.getElementById('toolPaint').addEventListener('click', ()=>setTool('paint'));
+document.getElementById('toolPick').addEventListener('click', ()=>setTool('pick'));
+function setTool(t){
+  state.tool=t;
+  document.getElementById('toolPaint').classList.toggle('active', t==='paint');
+  document.getElementById('toolPick').classList.toggle('active', t==='pick');
+  canvas.classList.toggle('pick-mode', t==='pick');
+}
+document.getElementById('gridToggle').addEventListener('change', (e)=>{
+  state.showGrid=e.target.checked;
+  const gc=document.getElementById('gridCanvas');
+  gc.style.display = state.showGrid ? 'block' : 'none';
+  if(state.showGrid) drawGridOverlay();
+});
+document.getElementById('collisionToggle').addEventListener('change', (e)=>{
+  state.showCollision=e.target.checked;
+  rebuildVisuals();
+});
+const zoomEl=document.getElementById('zoom');
+zoomEl.addEventListener('input', applyZoom);
+function applyZoom(){
+  state.zoom=parseFloat(zoomEl.value);
+  document.getElementById('zoomVal').textContent=Math.round(state.zoom*100)+'%';
+  const w=(MAP_W*TILE*state.zoom)+'px', h=(MAP_H*TILE*state.zoom)+'px';
+  canvas.style.width=w; canvas.style.height=h;
+  const gc=document.getElementById('gridCanvas');
+  gc.style.width=w; gc.style.height=h;
+  const ol=document.getElementById('objectsLayer');
+  ol.style.transform='scale('+state.zoom+')';
+}
+function drawGridOverlay(){
+  const gc=document.getElementById('gridCanvas');
+  gc.width=MAP_W*TILE; gc.height=MAP_H*TILE;
+  const gctx=gc.getContext('2d');
+  gctx.clearRect(0,0,gc.width,gc.height);
+  gctx.strokeStyle='rgba(95,184,176,.45)';
+  gctx.lineWidth=1;
+  gctx.beginPath();
+  for(let c=0; c<=MAP_W; c++){ const x=c*TILE+0.5; gctx.moveTo(x,0); gctx.lineTo(x,gc.height); }
+  for(let r=0; r<=MAP_H; r++){ const y=r*TILE+0.5; gctx.moveTo(0,y); gctx.lineTo(gc.width,y); }
+  gctx.stroke();
+}
+
+/* ------------- рисование на карте ------------- */
+function eventToCell(e){
+  const rect=canvas.getBoundingClientRect();
+  const scaleX=canvas.width/rect.width, scaleY=canvas.height/rect.height;
+  const x=(e.clientX-rect.left)*scaleX, y=(e.clientY-rect.top)*scaleY;
+  const col=Math.floor(x/TILE), row=Math.floor(y/TILE);
+  if(col<0||col>=MAP_W||row<0||row>=MAP_H) return null;
+  return {row,col};
+}
+function pushUndo(){
+  state.undoStack.push(state.grid.slice());
+  if(state.undoStack.length>40) state.undoStack.shift();
+}
+function paintAt(row,col){
+  const idx=row*MAP_W+col;
+  if(state.grid[idx]===state.selectedTile) return;
+  state.grid[idx]=state.selectedTile;
+  renderCell(row,col);
+}
+canvas.addEventListener('mousedown', (e)=>{
+  if(state.mode!=='tiles') return;
+  const cell=eventToCell(e); if(!cell) return;
+  if(state.tool==='pick'){
+    state.selectedTile=state.grid[cell.row*MAP_W+cell.col];
+    document.querySelectorAll('.swatch').forEach(s=>s.classList.toggle('sel', +s.dataset.tile===state.selectedTile));
+    setTool('paint');
+    return;
+  }
+  pushUndo();
+  state.isPainting=true;
+  state.lastPaintIdx=cell.row*MAP_W+cell.col;
+  paintAt(cell.row,cell.col);
+});
+window.addEventListener('mousemove', (e)=>{
+  if(state.mode!=='tiles') return;
+  const cell=eventToCell(e);
+  if(cell){
+    document.getElementById('stHover').textContent = state.grid ? '#'+state.grid[cell.row*MAP_W+cell.col] : '—';
+    document.getElementById('stCell').textContent = t('status.cellValue', {row:cell.row, col:cell.col});
+  }
+  if(state.isPainting && cell){
+    const idx=cell.row*MAP_W+cell.col;
+    if(idx!==state.lastPaintIdx){ paintAt(cell.row,cell.col); state.lastPaintIdx=idx; }
+  }
+});
+window.addEventListener('mouseup', ()=>{ state.isPainting=false; });
+
+document.getElementById('undoBtn').addEventListener('click', doUndo);
+window.addEventListener('keydown', (e)=>{
+  if((e.ctrlKey||e.metaKey) && e.key.toLowerCase()==='z'){ e.preventDefault(); doUndo(); }
+});
+function doUndo(){
+  if(state.undoStack.length===0) return;
+  state.grid=state.undoStack.pop();
+  renderFull();
+}
+
+/* ------------- экспорт .CDG ------------- */
+document.getElementById('exportBtn').addEventListener('click', ()=>{
+  if(!state.grid) return;
+  const cdgBytes=serializeGridToCdg(state.grid);
+  const noCompress = document.getElementById('noCompressToggle').checked;
+  const noEscape = document.getElementById('noEscapeToggle').checked;
+  // ВАЖНО: смена перестановки j1/j2/j3 (даже при чисто литеральном режиме без
+  // единой copy-операции) на практике оказалась НЕБЕЗОПАСНОЙ — вызывала
+  // зависание и графические глитчи. Поэтому всегда сохраняем ИМЕННО
+  // оригинальную перестановку файла, без "оптимизаций" размера через неё.
+  const header = state.cdgHeader || new Uint8Array([0,0, 0,1,2,3]);
+  const j1=header[2], j2=header[3], j3=header[4], c1=header[5];
+  const body=sqxCompress(cdgBytes, {j1,j2,j3,c1, minMatch: noCompress ? 999999 : 3, allowEscape: !noEscape});
+  const full=new Uint8Array(header.length+body.length);
+  full.set(header,0); full.set(body,header.length);
+  const blob=new Blob([full], {type:'application/octet-stream'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download = state.fileNames.cdg || 'DECOR_EDITED.CDG';
+  document.body.appendChild(a); a.click(); a.remove();
+});
+
+/* ============================================================
+   ОБЪЕКТЫ (монстры/предметы): POSITn.REF + REFn.REF + спрайты
+   ============================================================ */
+function frameToCanvas(frame, scale){
+  if(!frame || !frame.w || !frame.h) return null;
+  scale = scale||1;
+  const c=document.createElement('canvas');
+  c.width=frame.w; c.height=frame.h;
+  const ctx2=c.getContext('2d');
+  const img=ctx2.createImageData(frame.w, frame.h);
+  const pal=state.palette||DEFAULT_PALETTE;
+  for(let p=0;p<frame.w*frame.h;p++){
+    const v=frame.idx[p];
+    img.data[p*4]=pal[v*3]; img.data[p*4+1]=pal[v*3+1]; img.data[p*4+2]=pal[v*3+2];
+    img.data[p*4+3]= v===0 ? 0 : 255; // индекс 0 считаем прозрачным фоном спрайта
+  }
+  ctx2.putImageData(img,0,0);
+  if(scale!==1){
+    const c2=document.createElement('canvas');
+    c2.width=frame.w*scale; c2.height=frame.h*scale;
+    const ctx3=c2.getContext('2d');
+    ctx3.imageSmoothingEnabled=false;
+    ctx3.drawImage(c,0,0,c2.width,c2.height);
+    return c2;
+  }
+  return c;
+}
+function getThumbnailFrame(typeIndex){
+  const ad=state.animDefs[typeIndex];
+  if(!ad) return null;
+  // По коду движка (game_draw_object, ветка NICKY1):
+  //   spr = res_level_spr;  if ((sprite_flags & 0xF000) == 0x9000) spr = res_monster_spr;
+  //   sys_add_to_sprite_list(spr, ad->sprite_num, ...)
+  // т.е. реальный кадр для отображения — sprite_num (НЕ init_sprite_num, который
+  // используется движком для индексации таблицы движения, а не спрайта!).
+  let spriteIdx=ad.spriteNum, flags=ad.spriteFlags;
+  if(spriteIdx===0 && ad.defaultSpriteNum!==0){
+    spriteIdx=ad.defaultSpriteNum; flags=ad.defaultSpriteFlags;
+  }
+  if(spriteIdx===0) return null; // у типа действительно нет статичного спрайта
+  const wantMonster=(flags & 0xF000)===0x9000;
+  const prefix = wantMonster ? 's1' : 's0';
+  const otherPrefix = wantMonster ? 's0' : 's1';
+
+  function tryFrame(fname){
+    const sheet=state.spriteSheets[fname];
+    if(sheet && spriteIdx<sheet.length && sheet[spriteIdx] && sheet[spriteIdx].w) return sheet[spriteIdx];
+    return null;
+  }
+  // 1) точное имя файла для ЭТОГО уровня (S0n.SPR/S1n.SPR, n = номер загруженного DECORn.CDG) —
+  //    важно, если одновременно загружены файлы нескольких уровней (S00,S01,S02...)
+  if(state.levelNum!=null){
+    for(const fname in state.spriteSheets){
+      if(fname.toLowerCase()===(prefix+state.levelNum+'.spr')){
+        const f=tryFrame(fname); if(f) return f;
+      }
+    }
+  }
+  // 2) любой лист с "правильным" префиксом (level vs monster)
+  for(const fname in state.spriteSheets){
+    if(!fname.toLowerCase().startsWith(prefix)) continue;
+    const f=tryFrame(fname); if(f) return f;
+  }
+  // 3) запасной вариант: лист с "противоположным" префиксом, затем вообще любой
+  for(const fname in state.spriteSheets){
+    if(!fname.toLowerCase().startsWith(otherPrefix)) continue;
+    const f=tryFrame(fname); if(f) return f;
+  }
+  for(const fname in state.spriteSheets){
+    const f=tryFrame(fname); if(f) return f;
+  }
+  return null;
+}
+function buildObjectTypeList(){
+  const wrap=document.getElementById('objectTypeList');
+  wrap.innerHTML='';
+  if(state.animDefs.length===0){
+    wrap.innerHTML='<div style="color:var(--ink-dim);font-size:11px;padding:8px;">'+t('objectType.emptyHint')+'</div>';
+    return;
+  }
+  state.animDefs.forEach(ad=>{
+    const row=document.createElement('div');
+    row.className='typeRow'+(ad.index===state.selectedObjectType?' sel':'');
+    row.dataset.type=ad.index;
+    const thumb=document.createElement('div');
+    thumb.className='thumb';
+    const frame=getThumbnailFrame(ad.index);
+    const cv=frameToCanvas(frame, 1);
+    if(cv){ cv.style.maxWidth='24px'; cv.style.maxHeight='24px'; thumb.appendChild(cv); }
+    else { thumb.textContent='#'+ad.index; }
+    const meta=document.createElement('div');
+    meta.className='meta';
+    meta.innerHTML='<b>#'+ad.index+'</b> '+t('objectType.score')+ad.score+' '+t('objectType.lifes')+ad.lifes;
+    row.appendChild(thumb); row.appendChild(meta);
+    row.addEventListener('click', ()=>{
+      state.selectedObjectType=ad.index;
+      wrap.querySelectorAll('.typeRow').forEach(r=>r.classList.toggle('sel', +r.dataset.type===ad.index));
+    });
+    wrap.appendChild(row);
+  });
+}
+function renderObjectsLayer(){
+  const layer=document.getElementById('objectsLayer');
+  layer.innerHTML='';
+  state.objects.forEach((obj,idx)=>{
+    const m=document.createElement('div');
+    m.className='objMarker'+(obj.visible?'':' invisible')+(state.selectedObjectIndex===idx?' sel':'');
+    const frame=getThumbnailFrame(obj.num);
+    const cv=frameToCanvas(frame,1);
+    let w=20,h=16;
+    if(cv){ w=frame.w; h=frame.h; m.appendChild(cv); }
+    else { m.textContent='#'+obj.num; } // нет статичного спрайта (sprite_num=0 в REF.REF) — подпись вместо картинки
+    m.style.width=w+'px'; m.style.height=h+'px';
+    // (map_x, map_y) — координаты ЛЕВОГО ВЕРХНЕГО угла спрайта (как в draw_sprite движка),
+    // а НЕ центра — поэтому без какого-либо центрирующего transform.
+    m.style.left=obj.mapX+'px'; m.style.top=obj.mapY+'px';
+    m.title=t('marker.type',{num:obj.num})+' ('+obj.mapX+','+obj.mapY+')'+(obj.visible?'':t('marker.hidden'))+(cv?'':t('marker.noSprite'));
+    m.dataset.idx=idx;
+    m.addEventListener('mousedown', (e)=>{
+      if(state.mode!=='objects') return;
+      e.stopPropagation();
+      selectObject(idx);
+      state.draggingObjectIndex=idx;
+      state.dragStartX=e.clientX; state.dragStartY=e.clientY;
+    });
+    layer.appendChild(m);
+  });
+  document.getElementById('stObjCount').textContent=state.objects.length;
+  updateObjOverLimitWarning();
+}
+function updateObjOverLimitWarning(){
+  const warn=document.getElementById('stObjWarning');
+  const overLimit = state.positOriginalCount!=null && state.objects.length>state.positOriginalCount;
+  warn.style.display = overLimit ? 'inline' : 'none';
+  if(overLimit){
+    warn.title = t('warning.overLimitTitle', {current:state.objects.length, original:state.positOriginalCount});
+  }
+}
+function selectObject(idx){
+  state.selectedObjectIndex=idx;
+  document.querySelectorAll('.objMarker').forEach(m=>m.classList.toggle('sel', +m.dataset.idx===idx));
+  updateInspector();
+}
+function deselectObject(){
+  state.selectedObjectIndex=null;
+  document.querySelectorAll('.objMarker').forEach(m=>m.classList.remove('sel'));
+  document.getElementById('objectInspector').style.display='none';
+}
+function updateInspector(){
+  const insp=document.getElementById('objectInspector');
+  if(state.selectedObjectIndex===null){ insp.style.display='none'; return; }
+  const o=state.objects[state.selectedObjectIndex];
+  insp.style.display='block';
+  document.getElementById('insType').value=o.num;
+  document.getElementById('insX').value=o.mapX;
+  document.getElementById('insY').value=o.mapY;
+  document.getElementById('insRefRef').value=o.refRefIndex;
+  document.getElementById('insTileNum').value=o.tileNum;
+  document.getElementById('insVisible').checked=!!o.visible;
+}
+function applyInspectorField(field, value){
+  if(state.selectedObjectIndex===null) return;
+  const o=state.objects[state.selectedObjectIndex];
+  o[field]=value;
+  renderObjectsLayer();
+  selectObject(state.selectedObjectIndex);
+}
+['insType','insRefRef','insTileNum'].forEach((id,i)=>{
+  const fieldMap={insType:'num', insRefRef:'refRefIndex', insTileNum:'tileNum'};
+  document.getElementById(id).addEventListener('change', (e)=>{
+    applyInspectorField(fieldMap[id], Math.max(0, parseInt(e.target.value)||0));
+  });
+});
+document.getElementById('insX').addEventListener('change', (e)=>{
+  applyInspectorField('mapX', Math.max(0, Math.min(MAP_W*TILE-1, parseInt(e.target.value)||0)));
+});
+document.getElementById('insY').addEventListener('change', (e)=>{
+  applyInspectorField('mapY', Math.max(0, Math.min(MAP_H*TILE-1, parseInt(e.target.value)||0)));
+});
+document.getElementById('insVisible').addEventListener('change', (e)=>{
+  applyInspectorField('visible', e.target.checked?1:0);
+});
+document.getElementById('deleteObjBtn').addEventListener('click', ()=>{
+  if(state.selectedObjectIndex===null) return;
+  state.objects.splice(state.selectedObjectIndex,1);
+  deselectObject();
+  renderObjectsLayer();
+});
+
+/* перетаскивание маркера мышью */
+window.addEventListener('mousemove', (e)=>{
+  if(state.draggingObjectIndex===null || state.draggingObjectIndex===undefined) return;
+  const layer=document.getElementById('objectsLayer');
+  const rect=layer.getBoundingClientRect();
+  const x=Math.round((e.clientX-rect.left)/state.zoom);
+  const y=Math.round((e.clientY-rect.top)/state.zoom);
+  const o=state.objects[state.draggingObjectIndex];
+  o.mapX=Math.max(0, Math.min(MAP_W*TILE-1, x));
+  o.mapY=Math.max(0, Math.min(MAP_H*TILE-1, y));
+  renderObjectsLayer();
+  selectObject(state.draggingObjectIndex);
+});
+window.addEventListener('mouseup', ()=>{ state.draggingObjectIndex=null; });
+
+/* клик по пустому месту слоя объектов: новый объект (режим объектов) или снятие выделения */
+document.getElementById('objectsLayer').addEventListener('mousedown', (e)=>{
+  if(state.mode!=='objects') return;
+  const layer=document.getElementById('objectsLayer');
+  const rect=layer.getBoundingClientRect();
+  const x=Math.round((e.clientX-rect.left)/state.zoom);
+  const y=Math.round((e.clientY-rect.top)/state.zoom);
+  if(state.animDefs.length===0){
+    deselectObject();
+    return;
+  }
+  state.objects.push({num:state.selectedObjectType, mapX:x, mapY:y, refRefIndex:0, visible:1, tileNum:0});
+  renderObjectsLayer();
+  selectObject(state.objects.length-1);
+});
+
+/* переключение режимов Тайлы / Объекты */
+document.getElementById('modeTilesBtn').addEventListener('click', ()=>setMode('tiles'));
+document.getElementById('modeObjectsBtn').addEventListener('click', ()=>setMode('objects'));
+function setMode(m){
+  state.mode=m;
+  document.getElementById('modeTilesBtn').classList.toggle('active', m==='tiles');
+  document.getElementById('modeObjectsBtn').classList.toggle('active', m==='objects');
+  document.getElementById('tilesPanel').style.display = m==='tiles' ? 'flex' : 'none';
+  document.getElementById('objectsPanel').style.display = m==='objects' ? 'flex' : 'none';
+  const ol=document.getElementById('objectsLayer');
+  ol.classList.toggle('modeActive', m==='objects');
+  if(m!=='objects') deselectObject();
+}
+
+function refreshObjectsUI(){
+  const ol=document.getElementById('objectsLayer');
+  if(state.grid || state.objects.length>0) ol.style.display='block';
+  buildObjectTypeList();
+  renderObjectsLayer();
+}
+setMode('tiles');
+applyI18n();
+
+/* ------------- экспорт POSIT.REF ------------- */
+document.getElementById('exportPositBtn').addEventListener('click', ()=>{
+  if(!state.posit) return;
+  if(state.positOriginalCount!=null && state.objects.length>state.positOriginalCount){
+    const proceed=confirm(t('confirm.exportOverLimit', {current:state.objects.length, original:state.positOriginalCount}));
+    if(!proceed) return;
+  }
+  const positBytes=serializePositions(state.objects);
+  const noCompress = document.getElementById('noCompressToggle').checked;
+  const noEscape = document.getElementById('noEscapeToggle').checked;
+  const header = state.positHeader || new Uint8Array([0,0, 0,1,2,3]);
+  const j1=header[2], j2=header[3], j3=header[4], c1=header[5];
+  const body=sqxCompress(positBytes, {j1,j2,j3,c1, minMatch: noCompress ? 999999 : 3, allowEscape: !noEscape});
+  const full=new Uint8Array(header.length+body.length);
+  full.set(header,0); full.set(body,header.length);
+  const blob=new Blob([full], {type:'application/octet-stream'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download = state.positFileName || 'POSIT_EDITED.REF';
+  document.body.appendChild(a); a.click(); a.remove();
+});
+</script>
+</body>
+</html>
