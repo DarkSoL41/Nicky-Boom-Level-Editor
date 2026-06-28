@@ -1,309 +1,326 @@
-# Формат файлов уровней Nicky Boom (DOS, Microids 1992)
+# Nicky Boom level file format (DOS, Microids 1992)
 
-Расшифровано на основе бинарного анализа + сверки с исходниками движка
-`nicky-0.2.0-src` (Gregory Montoir / cyx, http://cyxdown.free.fr/nicky/).
-Ключевой файл — `sqx_decoder.c`: один и тот же алгоритм сжатия используется
-**для всех** файлов ресурсов (`.CDG`, `.BLK`, `.REF`, `.SQX`).
+Reverse-engineered through binary analysis, cross-checked against the engine
+reimplementation source `nicky-0.2.0-src` (Gregory Montoir / cyx,
+http://cyxdown.free.fr/nicky/), and finally confirmed against the real
+`NICKY.EXE` (own UPX-unpacking + disassembly of the original DOS executable).
+The same compression algorithm (`sqx`) is used for **every** resource file
+type: `.CDG`, `.BLK`, `.REF`, `.SQX`.
 
-## 1. Общий заголовок и сжатие "sqx"
+## 1. Common header and "sqx" compression
 
-Каждый файл на диске устроен так:
+Every file on disk is laid out like this:
 
 ```
-байты 0-1   : не используются sqx_decode (пропускаются вызывающим кодом,
-              fio_fetch() в fileio_std.c вызывает sqx_decode(data + 2, dst))
-байт   2    : j1
-байт   3    : j2          j1,j2,j3 — перестановка чисел {0,1,2}
-байт   4    : j3
-байт   5    : c1          параметр сдвига для длинных смещений (обычно 3)
-байты 6..   : сжатый поток
+bytes 0-1   : buffer placement offset — see "IMPORTANT" note below!
+              (NOT ignored by the real game, even though sqx_decode()
+              itself never reads them — see explanation further down)
+byte   2    : j1
+byte   3    : j2          j1,j2,j3 — a permutation of {0,1,2}
+byte   4    : j3
+byte   5    : c1          shift parameter for long-match offsets (varies per file, e.g. 3..6)
+bytes 6..   : compressed stream
 ```
 
-Распакованный размер **не хранится в файле** — он know-how движка
-(см. таблицу `pc_datafiles_table__v1` в `fileio_std.c`):
+The decompressed size is **not stored in the file** — it's engine know-how
+(see the `pc_datafiles_table__v1` table in `fileio_std.c`):
 
-| Файл           | Сжатый размер (level 1) | Распакованный |
-|----------------|--------------------------|----------------|
-| DECOR1.BLK     | 25 040                   | 32 768         |
-| DECOR1.CDG     | 9 032                    | 20 000         |
-| DECOR1.REF     | 163                       | 2 048          |
-| POSIT1.REF     | 2 184                     | 4 100          |
-| REF1.REF       | 2 839                     | 16 728         |
+| File           | Compressed size (level 1) | Decompressed |
+|----------------|----------------------------|----------------|
+| DECOR1.BLK     | 25,040                     | 32,768         |
+| DECOR1.CDG     | 9,032                       | 20,000         |
+| DECOR1.REF     | 163                          | 2,048          |
+| POSIT1.REF     | 2,184                        | 4,100          |
+| REF1.REF       | 2,839                        | 16,728         |
 
-### Алгоритм sqx (LZ-семейство, побитовое управление)
+### ⚠️ IMPORTANT: bytes 0-1 are a buffer placement offset, NOT padding!
 
-Управляющие биты читаются из 16-битного регистра `code`, который
-подгружается из потока (little-endian слова) по мере опустошения через
-сдвиги (`shr`/`rcr`/`rcl` — классические ассемблерные ротации с переносом).
-Каждая операция — это один из трёх типов, причём порядок их выбора
-(какой бит → какой тип) определяется перестановкой `(j1, j2, j3)`,
-прочитанной из заголовка конкретного файла:
+This was the actual root cause of months of "compression breaks the game"
+mysteries, confirmed by disassembling the real DOS loader code:
 
-- **Тип "литерал"** — скопировать 1 байт как есть.
-- **Тип "короткое совпадение"** — копия из окна **-1..-256** байт назад,
-  длина 2..5 байт; смещение задаётся одним байтом (`0xFF00 | byte`).
-- **Тип "длинное совпадение"** — смещение и длина пакуются в 16-битное
-  слово с учётом параметра `c1` (сдвиг) — позволяет смотреть значительно
-  дальше назад; если получившаяся длина равна 0 — читается отдельный байт
-  длины, а нулевой байт длины здесь означает **конец потока**.
+```
+first_2_bytes = decompressed_size − compressed_body_size
+```
+(`compressed_body_size` = file size minus the 6-byte header)
 
-Полная рабочая реализация — `sqx_codec.py` (прямой порт C-кода).
+Verified exactly on the original files:
+- CDG: 20000 − 9026 = **10974** ✓ (matches the file byte-for-byte)
+- BLK: 32768 − 25034 = **7734** ✓ (matches the file byte-for-byte)
 
-## 2. DECORn.CDG — карта тайлов уровня
+**Why this exists.** The game allocates one fixed-size buffer per resource
+and loads the compressed file into it at an offset, not at the very start.
+Decompression then writes the output starting from the buffer's beginning
+(growing forward) while reading compressed input that sits further into the
+*same* buffer. The offset must be tuned so that:
+1. the file read itself doesn't write past the end of the buffer, and
+2. the growing decompressed output never catches up to the still-unread
+   compressed input within the buffer.
 
-- Размер после распаковки: **20000 байт** = `400 × 50` (ширина × высота в тайлах).
-- Один байт на клетку = индекс тайла (0..255).
-- **Раскладка КОЛОНОЧНАЯ (column-major)**, не построчная!
-  `index = col * 50 + row`, т.е. сначала все 50 строк первого столбца,
-  потом все 50 строк второго и т.д. (подтверждено по `game.c`/`op_logic.c`:
-  `offset = (x >> 4) * _screen_cdg_tile_map_h + ...`, где
+Both constraints together pin the offset down to essentially this one
+formula, with only a few bytes of slack (an internal `+0x20` margin in the
+loader plus the 4 header bytes consumed by `sqx_decode`).
+
+**What used to go wrong:** earlier versions of the encoder/editor copied
+these 2 bytes verbatim from the original file. That's only correct for the
+*original* compressed size. As soon as the level is edited, the compressed
+body size changes, but the old (now wrong) offset stays — and depending on
+the direction of the mismatch this caused either a buffer overrun while
+reading the file (→ corrupts adjacent memory → **hang**), or output
+overtaking input *inside* the buffer during decompression (→ **garbled
+tiles**, but no crash). It also explains why sound/music sometimes broke:
+the corrupted adjacent memory could easily be something the sound engine
+uses.
+
+**The fix** (implemented in `sqx_encoder.py` / `nicky_level_editor.html`):
+recompute these 2 bytes on every export, based on the *actual* size of the
+freshly compressed body — never copy them from the original file. With this
+fix, real LZ compression (not just a literal-only fallback) works
+completely reliably: correct tiles, no hangs, intact music.
+
+### The sqx algorithm itself (LZ family, bit-level control)
+
+Control bits are read from a 16-bit `code` register, refilled from the
+stream (little-endian words) as it empties out via shifts (`shr`/`rcr`/`rcl`
+— classic assembly rotate-with-carry idioms). Each operation is one of
+three types, and the order in which bits select a type is given by the
+permutation `(j1, j2, j3)` read from that file's header:
+
+- **Literal** — copy 1 byte verbatim.
+- **Short match** — a copy from **-1..-256** bytes back, length 2..5; the
+  offset is a single byte (`0xFF00 | byte`).
+- **Long match** — offset and length are packed into one 16-bit word using
+  the `c1` shift parameter, allowing much longer back-references; if the
+  resulting length field is 0, an extra length byte follows, and a zero
+  length byte there marks **end of stream**.
+
+A complete working implementation lives in `sqx_codec.py` (decoder) and
+`sqx_encoder.py` (encoder), both a direct, debugger-verified port of the
+real game's behaviour.
+
+## 2. DECORn.CDG — level tile map
+
+- Decompressed size: **20000 bytes** = `400 × 50` (width × height in tiles).
+- One byte per cell = tile index (0..255).
+- **Layout is COLUMN-MAJOR**, not row-major!
+  `index = col * 50 + row`, i.e. all 50 rows of the first column, then all
+  50 rows of the second column, etc. (confirmed against `game.c`/
+  `op_logic.c`: `offset = (x >> 4) * _screen_cdg_tile_map_h + ...`, where
   `_screen_cdg_tile_map_h = 50`).
-- Тайл `16×16` пикселей → полное изображение уровня `6400 × 800` px.
+- Each tile is `16×16` px → the full level image is `6400 × 800` px.
 
-## 3. DECORn.BLK — графика тайлов
+## 3. DECORn.BLK — tile graphics
 
-- Размер после распаковки: **32768 байт** = 256 тайлов × 128 байт/тайл.
-- Каждый тайл — `16×16` пикселей, 4 бита на пиксель (16 цветов), формат
-  **planar** (раздельные битовые плоскости), как на Amiga/EGA.
-- Раскладка байт одного тайла (`decode_bitplane_tile` в `systemstub_sdl.c`):
-  для каждой из 16 строк читаются 8 байт — 4 плоскости для левой половины
-  строки (8 px) и 4 плоскости для правой половины (8 px), чередуясь:
+- Decompressed size: **32768 bytes** = 256 tiles × 128 bytes/tile.
+- Each tile is `16×16` pixels, 4 bits/pixel (16 colors), **planar** format
+  (separate bitplanes), same as Amiga/EGA.
+- Per-tile byte layout (`decode_bitplane_tile` in `systemstub_sdl.c`): for
+  each of the 16 rows, 8 bytes are read — 4 planes for the left half of the
+  row (8 px) then 4 planes for the right half (8 px), interleaved as:
   `P0_left, P0_right, P1_left, P1_right, P2_left, P2_right, P3_left, P3_right`.
-  Значение пиксела = бит из плоскости `p` (0..3) сдвинут на `p`,
-  биты читаются от старшего к младшему (MSB-first) внутри байта.
+  Pixel value = bit from plane `p` (0..3) shifted by `p`; bits are read
+  MSB-first within each byte.
 
-## 4. DECORn.PAL — палитра (16 цветов)
+## 4. DECORn.PAL — palette (16 colors)
 
-- 16 цветов × 2 байта (big-endian), формат Amiga 12-bit RGB:
-  `r = (word>>8)&0xF, g=(word>>4)&0xF, b=word&0xF`, затем каждый канал
-  дублируется в младший нибл (`r | r<<4`) для получения 8-битного канала.
-- **У нас этого файла нет** — в пайплайне `decode_nicky_level.py` он
-  восстанавливается медианным сэмплингом цвета по эталонному скриншоту
-  (если он есть), иначе используется серая шкала.
-  При наличии настоящего `DECOR1.PAL` — раскодируется напрямую (см.
+- 16 colors × 2 bytes (big-endian), Amiga 12-bit RGB format:
+  `r = (word>>8)&0xF, g=(word>>4)&0xF, b=word&0xF`, then each channel is
+  duplicated into the low nibble (`r | r<<4`) to get an 8-bit channel.
+- **We don't have this file** — the `decode_nicky_level.py` pipeline
+  reconstructs it via median color sampling from the reference screenshot
+  (if available), otherwise falls back to a grayscale ramp. If a real
+  `DECOR1.PAL` is supplied, it's decoded directly (see
   `palette_from_pal_file`).
 
-## 5. DECORn.REF — атрибуты тайлов
+## 5. DECORn.REF — tile attributes
 
-- Размер после распаковки: **2048 байт** = 256 тайлов × 8 байт/запись.
-- Индексируется как `res_decor_ref[tile_id * 8 + N]`.
-- Байт 0 — битовые флаги (как минимум бит `0x01` — твёрдый тайл/коллизия,
-  биты `0x10`/`0x20` — особое поведение типа переключения/анимации тайла).
-- Байты 5/6 — альтернативный id тайла (используется при анимации/смене
-  тайла во время игры, например разрушаемые блоки).
-- Остальные байты — задействованы в менее очевидных эффектах
-  (см. `game.c` около строк 2160-2185, 2980-3005).
+- Decompressed size: **2048 bytes** = 256 tiles × 8 bytes/record.
+- Indexed as `res_decor_ref[tile_id * 8 + N]`.
+- Byte 0 — bit flags (at least bit `0x01` = solid tile/collision, bits
+  `0x10`/`0x20` = special swap/animation behaviour).
+- Bytes 5/6 — alternate tile id (used when the tile animates/swaps at
+  runtime, e.g. breakable blocks).
+- Remaining bytes drive less obvious effects (see `game.c` around lines
+  2160-2185, 2980-3005).
 
-## 6. POSITn.REF — расстановка монстров/объектов
+## 6. POSITn.REF — monster/item placement
 
-- Размер записи: **10 байт**, список завершается записью, где старший
-  бит первого 16-битного слова установлен (значение `0x8000` и выше,
-  на практике `0xFFFF`); до терминатора координаты — пиксельные, в той
-  же системе координат, что и вся карта (0..6399 по X, 0..799 по Y).
-- Подтверждено по `game_init_objects_from_positref()` в `game.c`: первое
-  поле (`num`) — это **прямой индекс** в массиве `res_ref_ref` (таблица
-  REFn.REF), т.е. `anim_data = res_ref_ref[num]`.
-- Также `(map_x, map_y)` передаются напрямую как **левый верхний угол**
-  спрайта при отрисовке (`draw_sprite`), а не центр.
+- Record size: **10 bytes**; the list ends with a record whose first
+  16-bit word has the high bit set (`0x8000` or above, in practice
+  `0xFFFF`). Coordinates before the terminator are in pixels, in the same
+  coordinate system as the whole map (0..6399 on X, 0..799 on Y).
+- Confirmed via `game_init_objects_from_positref()` in `game.c`: the first
+  field (`num`) is a **direct index** into the `res_ref_ref` array (the
+  `REFn.REF` table), i.e. `anim_data = res_ref_ref[num]`.
+- `(map_x, map_y)` are passed straight through as the **top-left corner**
+  of the sprite at draw time (`draw_sprite`), not the center.
 
 ```
-смещение  тип       поле
-0         u16 LE     num (anim_num)  — индекс записи в REFn.REF (тип объекта)
-2         u16 LE     map_x           — позиция по X, пиксели (0..6399)
-4         u16 LE     map_y           — позиция по Y, пиксели (0..799)
-6         u16 LE     ref_ref_index   — отдельная вторичная ссылка на REFn.REF
+offset    type       field
+0         u16 LE     num (anim_num)  — index into REFn.REF (object type)
+2         u16 LE     map_x           — X position, pixels (0..6399)
+4         u16 LE     map_y           — Y position, pixels (0..799)
+6         u16 LE     ref_ref_index   — separate secondary reference into REFn.REF
 8         u8         visible
 9         u8         tile_num
 ```
 
-### ⚠️ КРИТИЧЕСКОЕ ограничение №1: запись должны идти по возрастанию map_x
+### ⚠️ Hard constraint #1: records must be sorted by ascending map_x
 
-`game_update_cur_objects_ptr()` в `game.c` определяет, какие объекты
-сейчас видимы на экране, при помощи **скользящего окна**: продвигает
-указатель по массиву объектов, пока `map_pos_x` не попадёт в диапазон
-`[камера_x − 280, камера_x + ширина_экрана + 280]`, и останавливается,
-как только `map_pos_x` выходит за правую границу. Эта оптимизация
-**требует**, чтобы объекты в файле шли строго по возрастанию `map_x` —
-если порядок нарушен (например, объект подвинули в редакторе, не
-пересортировав список), скользящее окно "проскакивает" мимо него, и
-объект перестаёт отображаться/обрабатываться, даже если формально
-присутствует в файле. **Редактор сортирует объекты по X автоматически
-при экспорте** — вручную об этом заботиться не нужно, но если правите
-файл другим способом — учитывайте это требование.
+`game_update_cur_objects_ptr()` in `game.c` determines which objects are
+currently on screen using a **sliding window**: it advances a pointer
+through the object array until `map_pos_x` falls within
+`[camera_x − 280, camera_x + screen_width + 280]`, and stops as soon as
+`map_pos_x` exceeds the right edge. This optimization **requires** that
+objects in the file are strictly sorted by ascending `map_x` — if the order
+is broken (e.g. an object was dragged in the editor without re-sorting the
+list), the sliding window "skips past" it, and the object stops being
+rendered/processed even though it's technically still present in the file.
+**The editor sorts objects by X automatically on export** — you don't need
+to worry about this manually, but keep it in mind if you edit the file by
+other means.
 
-### ⚠️ КРИТИЧЕСКОЕ ограничение №2: жёсткий лимит количества объектов
+### ⚠️ Hard constraint #2: fixed object count limit
 
-В `game_init_level()` (`game.c`, ветка NICKY1) граница буфера обычных
-объектов задаётся как `objects_table_ptr2 = &objects_table[410]`, а
-`game_init_objects_from_positref()` проверяет `assert(os < objects_table_ptr2)`.
-Это означает **максимум 409 объектов + 1 терминатор = 410 слотов**.
-У уровня 1 уже ровно 409 объектов — то есть буфер заполнен полностью,
-и добавление хотя бы одного нового объекта выходит за пределы этого
-конкретного буфера и затирает соседний (зарезервированный для пуль/
-других нужд) участок памяти движка — отсюда пропавшие объекты,
-графические глитчи и нестабильность при добавлении новых объектов.
-Удаление и перемещение/редактирование существующих объектов безопасно.
+In `game_init_level()` (`game.c`, NICKY1 branch) the regular-object buffer
+boundary is `objects_table_ptr2 = &objects_table[410]`, and
+`game_init_objects_from_positref()` checks
+`assert(os < objects_table_ptr2)`. This means **a maximum of 409 objects +
+1 terminator = 410 slots**. Level 1 already uses exactly 409 objects — the
+buffer is completely full, and adding even one more object overruns this
+specific buffer and clobbers adjacent engine memory (reserved for bullets/
+other purposes) — hence vanishing objects, graphical glitches, and
+instability when adding new objects. Removing and moving/editing existing
+objects is safe. **This is a separate, genuinely hard-coded limit in the
+game's own memory layout — unrelated to file compression, and not fixable
+through data files alone (would require patching the executable).**
 
-## 7. REFn.REF — таблица "типов" монстров/объектов
+## 7. REFn.REF — monster/item "type" table
 
-- Размер записи: **0x44 = 68 байт** (`anim_data_t`, см. `load_ref_ref__v1`
-  в `resource.c`). Для level 1: `16728 / 68 = 246` записей. Это таблица
-  ШАБЛОНОВ/типов (характеристики), а НЕ расстановка — расстановку даёт
-  POSITn.REF, ссылаясь на индекс в этой таблице.
+- Record size: **0x44 = 68 bytes** (`anim_data_t`, see `load_ref_ref__v1`
+  in `resource.c`). For level 1: `16728 / 68 = 246` records. This is a
+  table of TEMPLATES/types (stats), NOT placement — placement comes from
+  `POSITn.REF`, which references an index into this table.
 
 ```
-смещение  тип       поле
-0         int8       unk0            (используется как displayed-флаг)
+offset    type       field
+0         int8       unk0            (used as the "displayed" flag)
 1         int8       lifes
 2         int8       cycles
 3         int8       unk3
 4-6       u8 x3      unk4, unk5, unk6
-7         u8         init_sprite_num — индекс кадра в .SPR для превью/начального вида
-8         u8         colliding_opcode — тип поведения при столкновении
-9         u8         logic_opcode     — тип логики (движение/AI)
+7         u8         init_sprite_num — frame index into .SPR for preview/initial look
+8         u8         colliding_opcode — collision behaviour type
+9         u8         logic_opcode     — logic/AI type
 10        int8       sound_num
 11        u8         rnd
 12-13     u16 LE      sprite_num
-14-15     u16 LE      sprite_flags     (0x80 — обычно означает "уровневый" спрайт, не "монстровый")
+14-15     u16 LE      sprite_flags     (0x80 usually means "level" sprite, not "monster")
 16-17     u16 LE      default_sprite_num
 18-19     u16 LE      default_sprite_flags
 20-21     u16 LE      anim_w
 22-23     u16 LE      anim_h
-24-25     u16 LE      score            — очки за объект
+24-25     u16 LE      score            — points awarded for the object
 26-27     u16 LE      bounding_box_x1
 28-29     u16 LE      bounding_box_x2
 30-31     u16 LE      bounding_box_y1
 32-33     u16 LE      bounding_box_y2
-34-35     u16 LE      move (индекс в таблице движения), 36-37 пропуск (2 байта)
+34-35     u16 LE      move (index into the movement table), 36-37 padding (2 bytes)
 38-39     u16 LE      distance_dx
 40-41     u16 LE      distance_dy
-42-43     u16 LE      anim_data1 (индекс), 44-45 пропуск
-46-47     u16 LE      anim_data2 (индекс), 48-49 пропуск
-50-51     u16 LE      anim_data3 (индекс), 52-53 пропуск
+42-43     u16 LE      anim_data1 (index), 44-45 padding
+46-47     u16 LE      anim_data2 (index), 48-49 padding
+50-51     u16 LE      anim_data3 (index), 52-53 padding
 54-55     u16 LE      dx
 56-57     u16 LE      dy
-58-59     u16 LE      anim_data4 (индекс), 60-61 пропуск
+58-59     u16 LE      anim_data4 (index), 60-61 padding
 62-63     u16 LE      dx2
 64-65     u16 LE      dy2
-66-67     —           пропуск (Nicky2-only поля, не используются в v1)
+66-67     —           padding (Nicky 2-only fields, unused in v1)
 ```
 
-## 8. S0n.SPR / S1n.SPR / NICKY.SPR — спрайты (картинки монстров/предметов/Никки)
+## 8. S0n.SPR / S1n.SPR / NICKY.SPR — sprites (monster/item/Nicky graphics)
 
-Формат подтверждён по `display_sprite_list()` / `draw_sprite()` /
-`sys_get_sprite_dim()` в `systemstub_sdl.c`:
+Format confirmed via `display_sprite_list()` / `draw_sprite()` /
+`sys_get_sprite_dim()` in `systemstub_sdl.c`:
 
-- Файл начинается **таблицей смещений** — массив `u16 LE`, по одной
-  записи на номер спрайта (`sprite_num`/`init_sprite_num` из REFn.REF
-  индексирует именно эту таблицу). Значение — смещение (от начала файла)
-  до данных конкретного кадра. Размер таблицы вычисляется как минимальное
-  из самих смещений (данные кадров идут сразу после таблицы).
-- На смещении каждого кадра: `u16 LE width`, `u16 LE height`, затем
-  пиксели в том же 4bpp planar формате, что и тайлы (`DECORn.BLK`):
-  на строку — `ceil(width/8)` групп по 4 байта (по байту на битовую
-  плоскость), 8 пикселей на группу, биты MSB→LSB.
-- Цвет `0` — фон/прозрачность спрайта (не рисуется при выводе на экран).
-- Используется ОДНА из ДВУХ палитр спрайтов (`sys_set_palette_spr(...,1)`)
-  — не обязательно совпадает с палитрой тайлов уровня.
+- The file starts with an **offset table** — an array of `u16 LE`, one
+  entry per sprite number (`sprite_num`/`init_sprite_num` from `REFn.REF`
+  indexes straight into this table). The value is an offset (from the
+  start of the file) to that frame's data. The table's size is derived as
+  the minimum of the offsets themselves (frame data starts right after the
+  table).
+- At each frame's offset: `u16 LE width`, `u16 LE height`, then pixels in
+  the same 4bpp planar format as tiles (`DECORn.BLK`): per row,
+  `ceil(width/8)` groups of 4 bytes (one byte per bitplane), 8 pixels per
+  group, bits MSB→LSB.
+- Color `0` is the sprite's background/transparency (not drawn on screen).
+- Uses ONE of TWO sprite palettes (`sys_set_palette_spr(...,1)`) — not
+  necessarily the same as the level's tile palette.
 
-## 9. Обратный кодировщик (sqx_encoder.py / встроен в nicky_level_editor.html)
+## 9. The encoder (sqx_encoder.py / embedded in nicky_level_editor.html)
 
-### ⚠️ ИЗВЕСТНОЕ НЕРЕШЁННОЕ ОГРАНИЧЕНИЕ: реальная игра не полностью "универсальна" к sqx-параметрам
+A round-trip-safe encoder was needed for the level editor's save feature —
+it must produce bytes that the real game's `sqx_decode` turns back into
+exactly the intended data.
 
-Несмотря на то, что переписанный (cyx) декодер sqx — и, соответственно, наш
-энкодер/декодер — корректно работают с **любой** допустимой перестановкой
-`(j1,j2,j3)` и любым `c1` (подтверждено тысячами раундтрипов и фуззингом),
-**реальная игра 1992 года ведёт себя по-другому для некоторых файлов**:
+**Main difficulty:** the decoder reads 16-bit control words "lazily" — in
+full, the moment their first bit is needed — then hands out bits one at a
+time, interleaved with direct reads of data bytes (literals/offsets/
+lengths) from that same stream. So a control word's position in the output
+file is determined by *when its first bit was first needed*, not by when
+the encoder happened to accumulate all 16 of its bits (which can come from
+several different operations).
 
-- **Любая настоящая copy-операция** (`short_copy`/`long_copy` с реальными,
-  не нулевыми параметрами) — ломает уровень (зависание/хаос), даже
-  единственная, даже без перекрытия/escape. Подтверждено многократно.
-- **Смена перестановки заголовка `(j1,j2,j3)`** на иную, отличную от той,
-  что использовал исходный файл — **тоже ломает именно DECORn.CDG** (зависание +
-  графические глитчи), даже при чисто литеральном кодировании (без единой
-  copy-операции)! Подтверждено экспериментально: тот же самый литеральный
-  подход с ОРИГИНАЛЬНОЙ перестановкой (2,1,0 для DECOR1.CDG) — работает;
-  с "оптимизированной" (0,1,2, для уменьшения размера) — крашится.
+Solution — a two-pass assembly:
 
-Это говорит о том, что код реальной игры, в отличие от cyx-реимплементации,
-скорее всего НЕ полностью универсален к параметрам sqx — вероятно, на этапе
-разработки для каждого ТИПА файла были захардкожены отдельные ожидания
-(например, оптимизированный декодер под ИМЕННО ТУ перестановку, которую
-их собственный упаковщик всегда генерировал для этого типа файлов).
+1. **Pass 1.** Walk the operation list (literal / short match / long match
+   / terminator) in order; for each, generate its control bits (operation
+   choice per the header's `j1,j2,j3` permutation, plus internal length
+   bits if needed) and data bytes. Accumulate one flat list of all control
+   bits, plus a list of `(end_index_in_flat_list, [data_bytes])` per
+   operation.
+2. **Pass 2.** Slice the flat bit list into 16-bit words — these are the
+   stream's actual control words. Then, for each operation in order: first
+   emit any not-yet-emitted control words whose bits it needs
+   (`word_index*16 < operation_end`), then emit its data bytes. This
+   reproduces exactly the moment the decoder would have loaded that word.
 
-**Практический вывод**: при экспорте ВСЕГДА используйте оригинальный
-заголовок (j1,j2,j3,c1) ИМЕННО ТОГО файла, который редактируете — никогда
-не меняйте перестановку "для оптимизации", и никогда не используйте
-реальные copy-операции. Редактор это теперь делает автоматически (всегда
-сохраняет оригинальный заголовок, всегда кодирует литералами по умолчанию).
+Supports literal, short-match and long-match operations (full LZ77, window
+up to 8192 bytes back, length 3..257 bytes, overlapping copies allowed —
+the real loop appears to use blocked/overlapping copies too, and this is
+**not** an issue once the buffer-offset fix from section 1 is applied).
 
-**Остаточное ограничение**: для DECORn.CDG это означает, что безопасный
-экспорт всегда даёт файл размером ~25KB (чисто литеральный, с оригинальной
-перестановкой) вместо исходных ~9KB — и при таком размере у некоторых
-пользователей наблюдалась побочная проблема с музыкой (играет неправильно
-или совсем не слышно) после загрузки уровня с таким файлом. Размер при
-этом СТАБИЛЕН (не растёт от количества правок тайлов, т.к. DECORn.CDG
-всегда ровно 20000 байт после распаковки) — то есть это известный,
-предсказуемый побочный эффект, а не прогрессирующая проблема. Корень
-именно ЭТОЙ проблемы (музыка) пока не найден — похоже, требует отладки
-в реальном DOSBox-дебаггере, а не статического анализа.
+**Verified byte-for-byte round trip** on all 5 level-1 files (BLK/CDG/REF/
+POSIT/animation REF) — compress+decompress reproduces the original data
+exactly, with compression close to the original packer's ratio:
 
-Для редактора уровней с сохранением понадобился ОБРАТНЫЙ кодировщик — он
-должен производить байты, которые наш (и оригинальный игровой) декодер
-sqx_decode превратит ровно в нужные данные.
+| File       | Size  | Our compressed | Original compressed |
+|------------|-------|----------------:|----------------------:|
+| DECOR1.BLK | 32768 | ~25-26K (≈0.78-0.80) | 25040 (0.764) |
+| DECOR1.CDG | 20000 | ~9.6-9.7K (≈0.48-0.49) | 9032 (0.452) |
+| DECOR1.REF | 2048  | ~190 (≈0.09)    | 163 (0.080)   |
+| POSIT1.REF | 4100  | ~2.3-2.4K (≈0.56-0.58) | 2184 (0.533) |
+| REF1.REF   | 16728 | ~3.3K (≈0.20)   | 2839 (0.170)  |
 
-Главная сложность: декодер читает управляющие 16-битные слова "лениво" —
-целиком, в момент, когда нужен их первый бит, а далее раздаёт биты по одному,
-вперемешку с прямым чтением байт данных (литералов/смещений/длин) из того же
-потока. Поэтому положение управляющего слова в выходном файле определяется
-тем, когда его первый бит впервые понадобился — а не тем, когда кодировщик
-"набрал" все 16 бит этого слова (а они могут собираться из битов нескольких
-разных операций).
+Also verified the full edit cycle "tile edit → rebuild .CDG → load →
+render": after recompression the decoder reconstructs the edited data
+byte-for-byte, and the rendered level shows the edit in the right place —
+**in the real game**, not just in our own decoder, now that the buffer
+offset (section 1) is computed correctly.
 
-Решение — двухпроходная сборка:
+Implementations: `sqx_encoder.py` (Python) and the embedded JS port in
+`nicky_level_editor.html` — both kept in sync and produce byte-identical
+output on the same input (cross-checked in Node.js).
 
-1. **Pass 1.** Идём по списку операций (литерал / короткая копия / длинная
-   копия / терминатор) в нужном порядке, для каждой генерируем её
-   управляющие биты (выбор операции согласно перестановке `j1,j2,j3` из
-   заголовка, плюс при необходимости внутренние биты длины) и байты данных.
-   Копим единый плоский список всех управляющих бит и список "операций"
-   `(индекс_конца_в_плоском_списке, [байты_данных])`.
-2. **Pass 2.** Плоский список бит режется на 16-битные слова — это и есть
-   итоговые управляющие слова потока. Затем для каждой операции по порядку:
-   сначала выводим все ещё не выведенные управляющие слова, чьи биты ей
-   нужны (`индекс_слова*16 < конец_операции`), затем — её байты данных.
-   Это воспроизводит момент, когда декодер реально подгрузил бы слово.
+## Sources
 
-Используются только операции "литерал" и "длинная копия" (LZ77, окно до
-8192 байт назад, длина 3..257 байт, с overlap, как и в оригинале) —
-"короткая копия" не потребовалась для корректности, лишь немного хуже сжатие.
-
-**Проверено round-trip побайтово** на всех 5 файлах уровня 1 (BLK/CDG/REF/
-POSIT/REF-анимаций) — сжатие+распаковка дают точное совпадение с исходными
-данными, при сжатии, близком к оригинальному:
-
-| Файл       | Размер | Наш сжатый | Оригинальный сжатый |
-|------------|--------|-----------:|---------------------:|
-| DECOR1.BLK | 32768  | 26196 (0.799) | 25040 (0.764) |
-| DECOR1.CDG | 20000  | 9771 (0.489)  | 9032 (0.452)  |
-| DECOR1.REF | 2048   | 189 (0.092)   | 163 (0.080)   |
-| POSIT1.REF | 4100   | 2394 (0.584)  | 2184 (0.533)  |
-| REF1.REF   | 16728  | 3307 (0.198)  | 2839 (0.170)  |
-
-Также проверен полный цикл "правка → пересборка .CDG → загрузка → рендер"
-на тестовой правке тайлмапы — после пересжатия декодер восстанавливает
-изменённые данные побайтово точно, а отрисованный уровень показывает
-правку на нужном месте.
-
-Реализации: `sqx_encoder.py` (Python) и встроенный JS-порт в
-`nicky_level_editor.html` — оба синхронизированы и дают идентичный
-результат (проверено: побайтовое совпадение сжатых выходов на одинаковых
-входных данных).
-
-## Источники
-
-
-- `nicky-0.2.0-src.zip` — Gregory Montoir (cyx), движок-реимплементация
-  Nicky Boum/Nicky 2, файлы `sqx_decoder.c`, `fileio_std.c`, `resource.c`,
+- `nicky-0.2.0-src.zip` — Gregory Montoir (cyx), engine reimplementation of
+  Nicky Boum/Nicky 2; files `sqx_decoder.c`, `fileio_std.c`, `resource.c`,
   `systemstub_sdl.c`, `game.c`, `op_logic.c`.
-- Контрольный скриншот уровня 1: `964_map0.png` (Hall of Light).
+- Independent UPX unpacking + disassembly of the real `NICKY.EXE` (original
+  1992 DOS executable) — used to confirm the format against the actual
+  game code, including the buffer-offset mechanism in section 1, which the
+  cyx reimplementation doesn't need to replicate (it isn't a real-mode DOS
+  program with a fixed-size buffer constraint).
+- Reference screenshot of level 1: `964_map0.png` (Hall of Light,
+  hol.abime.net/964).
