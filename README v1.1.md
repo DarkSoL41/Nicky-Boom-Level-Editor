@@ -85,7 +85,7 @@ alone. Moving/editing/removing existing objects is fine; adding more than
 
 ## Quick start
 
-1. Open `nicky_level_editor.html` in your browser.
+1. Open `Nicky_level_editor 1.1.html` in your browser.
 2. Click **"OPEN GAME FOLDER"** and pick the folder with your game files —
    the editor automatically finds the needed files and loads level 1.
 3. Switch levels using the dropdown at the top.
@@ -108,3 +108,17 @@ alone. Moving/editing/removing existing objects is fine; adding more than
   code of the game.
 - Reference screenshot of level 1: `964_map0.png` (Hall of Light,
   hol.abime.net/964).
+
+## Legal
+
+This is an unofficial, free, non-commercial fan tool for editing your own legally
+owned copy of the game. It is not affiliated with or endorsed by Microids.
+*Nicky Boom* © 1992 Microids; the game, its name, graphics and levels belong to
+their owners. This package does not include any game files or assets.
+
+The `sqx` decoder in this package is a port of `sqx_decode()` from *Nicky - Nicky Boum
+engine rewrite*, Copyright (C) 2006-2007 Gregory Montoir (`nicky-0.2.0-src`), used with
+attribution. That project is his work; everything else here is written independently.
+
+No warranty of any kind. Keep a backup of your original game files.
+If you are a rights holder and want something changed or removed, contact me on Discord (`darksol41`) and I will do it.
