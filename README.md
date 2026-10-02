@@ -3,7 +3,7 @@
 *An unofficial level editor for **Nicky Boom** (Microids, DOS, 1992)*
 
 **Version 1.1** · Created by **DarkSoL** (Discord: `darksol41`) · Engine reverse-engineering based on Gregory Montoir's **cyx** reimplementation (`nicky-0.2.0-src`), plus independent disassembly of the original `NICKY.EXE` · Built with the help of the Claude AI (Anthropic)
-> If you’d like to support me financially, BTC address: bc1qp476rmcaapl6n6xjvg2la50cfw3kwvxe8sj0m5
+
 ---
 
 ## What is this?
@@ -139,3 +139,5 @@ That's it — that's the whole list. Earlier versions of this editor had several
 - **Original game:** *Nicky Boom*, © Microids, 1992
 
 This is an unofficial, fan-made tool for editing your own legally owned copy of the game. Not affiliated with Microids.
+
+If you are a rights holder and want something changed or removed, contact me on Discord (`darksol41`) and I will do it.
